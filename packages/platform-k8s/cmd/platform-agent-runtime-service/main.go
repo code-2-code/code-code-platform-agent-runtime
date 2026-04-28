@@ -15,16 +15,16 @@ import (
 
 	managementv1 "code-code.internal/go-contract/platform/management/v1"
 	platformk8s "code-code.internal/platform-k8s"
-	"code-code.internal/platform-k8s/agentruns"
-	"code-code.internal/platform-k8s/agentsessionactions"
-	"code-code.internal/platform-k8s/agentsessions"
-	"code-code.internal/platform-k8s/domainevents"
-	"code-code.internal/platform-k8s/internal/runevents"
-	"code-code.internal/platform-k8s/sessionapi"
-	"code-code.internal/platform-k8s/state"
-	"code-code.internal/platform-k8s/telemetry"
-	"code-code.internal/platform-k8s/temporalruntime"
-	"code-code.internal/platform-k8s/timeline"
+	"code-code.internal/platform-k8s/internal/agentruntime/agentruns"
+	"code-code.internal/platform-k8s/internal/agentruntime/agentsessionactions"
+	"code-code.internal/platform-k8s/internal/agentruntime/agentsessions"
+	"code-code.internal/platform-k8s/internal/agentruntime/sessionapi"
+	"code-code.internal/platform-k8s/internal/agentruntime/timeline"
+	"code-code.internal/platform-k8s/internal/platform/domainevents"
+	"code-code.internal/platform-k8s/internal/platform/runevents"
+	"code-code.internal/platform-k8s/internal/platform/state"
+	"code-code.internal/platform-k8s/internal/platform/telemetry"
+	"code-code.internal/platform-k8s/internal/platform/temporalruntime"
 	sessiondomain "code-code.internal/session"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -50,8 +50,9 @@ func main() {
 	cliRuntimeAddr := envOrDefault("PLATFORM_AGENT_RUNTIME_SERVICE_CLI_RUNTIME_GRPC_ADDR", "platform-cli-runtime-service:8081")
 	modelAddr := envOrDefault("PLATFORM_AGENT_RUNTIME_SERVICE_MODEL_GRPC_ADDR", "platform-model-service:8081")
 	supportAddr := envOrDefault("PLATFORM_AGENT_RUNTIME_SERVICE_SUPPORT_GRPC_ADDR", "platform-support-service:8081")
-	egressAddr := envOrDefault("PLATFORM_AGENT_RUNTIME_SERVICE_EGRESS_GRPC_ADDR", "platform-network-service:8081")
+	egressAddr := envOrDefault("PLATFORM_AGENT_RUNTIME_SERVICE_EGRESS_GRPC_ADDR", "platform-egress-service.code-code-net.svc.cluster.local:8081")
 	authAddr := envOrDefault("PLATFORM_AGENT_RUNTIME_SERVICE_AUTH_GRPC_ADDR", "platform-auth-service:8081")
+	internalActionToken := strings.TrimSpace(os.Getenv("PLATFORM_AGENT_RUNTIME_SERVICE_INTERNAL_ACTION_TOKEN"))
 	cliOutputSidecarImage := os.Getenv("PLATFORM_AGENT_RUNTIME_SERVICE_CLI_OUTPUT_SIDECAR_IMAGE")
 	timelineNATSURL := os.Getenv("PLATFORM_AGENT_RUNTIME_SERVICE_TIMELINE_NATS_URL")
 	timelineNATSSubjectPrefix := envOrDefault("PLATFORM_AGENT_RUNTIME_SERVICE_TIMELINE_NATS_SUBJECT_PREFIX", "platform.timeline")
@@ -103,12 +104,13 @@ func main() {
 	})
 	must(err)
 	agentRunWorkflow, err := agentruns.NewTemporalWorkflowRuntime(agentruns.TemporalWorkflowRuntimeConfig{
-		TemporalClient:        temporalClient,
-		RuntimeClient:         directClient,
-		ControlNamespace:      namespace,
-		RuntimeNamespace:      runtimeNamespace,
-		TaskQueue:             temporalConfig.TaskQueue,
-		CLIOutputSidecarImage: cliOutputSidecarImage,
+		TemporalClient:         temporalClient,
+		RuntimeClient:          directClient,
+		ControlNamespace:       namespace,
+		RuntimeNamespace:       runtimeNamespace,
+		TaskQueue:              temporalConfig.TaskQueue,
+		CLIOutputSidecarImage:  cliOutputSidecarImage,
+		TriggerHTTPActionToken: internalActionToken,
 	})
 	must(err)
 	temporalWorker := temporalruntime.NewWorker(temporalClient, temporalConfig.TaskQueue)
@@ -205,6 +207,7 @@ func main() {
 		CLIOutputSidecarImage: cliOutputSidecarImage,
 	})
 	must(err)
+	reconcileScheduler.SetDispatcher(sessionServer)
 
 	listener, err := net.Listen("tcp", addr)
 	must(err)
@@ -216,8 +219,11 @@ func main() {
 	healthServer.SetServingStatus(managementv1.AgentSessionManagementService_ServiceDesc.ServiceName, healthv1.HealthCheckResponse_SERVING)
 	healthv1.RegisterHealthServer(grpcServer, healthServer)
 
-	triggerHandler, err := sessionServer.NewTriggerHandler(slog.Default())
+	triggerHandler, err := sessionServer.NewTriggerHandler(slog.Default(), internalActionToken)
 	must(err)
+	if internalActionToken == "" {
+		log.Printf("internal action endpoints are disabled (env PLATFORM_AGENT_RUNTIME_SERVICE_INTERNAL_ACTION_TOKEN is empty)")
+	}
 	httpServer := &http.Server{
 		Addr:              httpAddr,
 		Handler:           triggerHandler,
