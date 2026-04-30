@@ -506,11 +506,11 @@ func validRunSpec() *agentrunv1.AgentRunSpec {
 		CpuRequest:               "1000m",
 		MemoryRequest:            "2Gi",
 		AuthRequirement: &agentrunv1.AgentRunAuthRequirement{
-			ProviderId:               "codex",
-			ProviderSurfaceBindingId: "openai-default",
-			AuthStatus:               "bound",
-			RuntimeUrl:               "https://api.openai.com/v1",
-			MaterializationKey:       "codex.openai-api-key",
+			ProviderId:         "codex",
+			SurfaceId:          "openai-default",
+			AuthStatus:         "bound",
+			RuntimeUrl:         "https://api.openai.com/v1",
+			MaterializationKey: "codex.openai-api-key",
 		},
 		RuntimeEnvironment: &corev1.RuntimeEnvironment{
 			WorkspaceDir: "/workspace",

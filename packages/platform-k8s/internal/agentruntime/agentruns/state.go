@@ -6,6 +6,7 @@ import (
 	resultv1 "code-code.internal/go-contract/agent/result/v1"
 	agentrunv1 "code-code.internal/go-contract/platform/agent_run/v1"
 	platformv1alpha1 "code-code.internal/platform-k8s/api/v1alpha1"
+	"code-code.internal/platform-k8s/internal/platform/phaseconv"
 	"code-code.internal/platform-k8s/internal/platform/protostate"
 	"google.golang.org/protobuf/proto"
 )
@@ -26,7 +27,7 @@ func runStateFromResource(resource *platformv1alpha1.AgentRunResource) (*agentru
 		Spec:       spec,
 		Status: &agentrunv1.AgentRunStatus{
 			RunId:              spec.GetRunId(),
-			Phase:              toProtoRunPhase(resource.Status.Phase),
+			Phase:              phaseconv.FromK8sRunPhase(resource.Status.Phase),
 			ObservedGeneration: resource.Status.ObservedGeneration,
 			Message:            resource.Status.Message,
 			Workload:           workloadRef(resource.Status.WorkloadID),
@@ -75,23 +76,4 @@ func clonePrepareJobStatuses(items []*agentrunv1.AgentRunPrepareJobStatus) []*ag
 		}
 	}
 	return out
-}
-
-func toProtoRunPhase(phase platformv1alpha1.AgentRunResourcePhase) agentrunv1.AgentRunPhase {
-	switch phase {
-	case platformv1alpha1.AgentRunResourcePhasePending:
-		return agentrunv1.AgentRunPhase_AGENT_RUN_PHASE_PENDING
-	case platformv1alpha1.AgentRunResourcePhaseScheduled:
-		return agentrunv1.AgentRunPhase_AGENT_RUN_PHASE_SCHEDULED
-	case platformv1alpha1.AgentRunResourcePhaseRunning:
-		return agentrunv1.AgentRunPhase_AGENT_RUN_PHASE_RUNNING
-	case platformv1alpha1.AgentRunResourcePhaseSucceeded:
-		return agentrunv1.AgentRunPhase_AGENT_RUN_PHASE_SUCCEEDED
-	case platformv1alpha1.AgentRunResourcePhaseFailed:
-		return agentrunv1.AgentRunPhase_AGENT_RUN_PHASE_FAILED
-	case platformv1alpha1.AgentRunResourcePhaseCanceled:
-		return agentrunv1.AgentRunPhase_AGENT_RUN_PHASE_CANCELED
-	default:
-		return agentrunv1.AgentRunPhase_AGENT_RUN_PHASE_UNSPECIFIED
-	}
 }

@@ -156,9 +156,9 @@ func TestReconcilerSchedulesAndCreatesFallbackAttemptAfterRetryBudgetExhausted(t
 		&agentsessionactionv1.AgentSessionRuntimeCandidate{
 			ResolvedProviderModel: testResolvedProviderModel("openai-backup", "https://backup.api.openai.com/v1", "gpt-4.1-mini"),
 			AuthRequirement: &agentrunv1.AgentRunAuthRequirement{
-				ProviderId:               "codex",
-				ProviderSurfaceBindingId: "openai-backup",
-				AuthStatus:               "bound",
+				ProviderId: "codex",
+				SurfaceId:  "openai-backup",
+				AuthStatus: "bound",
 			},
 		},
 	)
@@ -224,8 +224,8 @@ func TestReconcilerSchedulesAndCreatesFallbackAttemptAfterRetryBudgetExhausted(t
 	if got, want := retryRun.Spec.Run.GetRequest().GetResolvedProviderModel().GetProviderModelId(), "gpt-4.1-mini"; got != want {
 		t.Fatalf("retry resolved_provider_model.provider_model_id = %q, want %q", got, want)
 	}
-	if got, want := retryRun.Spec.Run.GetAuthRequirement().GetProviderSurfaceBindingId(), "openai-backup"; got != want {
-		t.Fatalf("retry auth_requirement.provider_surface_binding_id = %q, want %q", got, want)
+	if got, want := retryRun.Spec.Run.GetAuthRequirement().GetSurfaceId(), "openai-backup"; got != want {
+		t.Fatalf("retry auth_requirement.surface_id = %q, want %q", got, want)
 	}
 }
 
@@ -491,9 +491,9 @@ func getTerminalRun(runID string) *platformv1alpha1.AgentRunResource {
 				ResourceConfigGeneration: 1,
 				StateGeneration:          1,
 				AuthRequirement: &agentrunv1.AgentRunAuthRequirement{
-					ProviderId:               "codex",
-					ProviderSurfaceBindingId: "openai-default",
-					AuthStatus:               "bound",
+					ProviderId: "codex",
+					SurfaceId:  "openai-default",
+					AuthStatus: "bound",
 				},
 			},
 		},

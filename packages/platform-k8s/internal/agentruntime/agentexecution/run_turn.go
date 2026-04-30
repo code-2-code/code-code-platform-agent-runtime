@@ -32,7 +32,7 @@ func (r *Resolver) resolveRuntimeCandidates(ctx context.Context, session *platfo
 	if session == nil || session.Spec.Session == nil {
 		return nil, validation("session is invalid")
 	}
-	primaryInstance, err := r.loadPrimaryProviderSurfaceBinding(ctx, session)
+	primaryInstance, err := r.loadPrimaryProvider(ctx, session)
 	if err != nil {
 		return nil, err
 	}

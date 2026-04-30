@@ -18,7 +18,7 @@ type modelBinding struct {
 	source          providerv1.CatalogSource
 }
 
-func (r *Resolver) resolvePrimaryRuntimeCandidate(ctx context.Context, session *platformv1alpha1.AgentSessionResource, request *agentcorev1.RunRequest, instance *SurfaceBindingProjection) (*RuntimeCandidate, error) {
+func (r *Resolver) resolvePrimaryRuntimeCandidate(ctx context.Context, session *platformv1alpha1.AgentSessionResource, request *agentcorev1.RunRequest, instance *ProviderProjection) (*RuntimeCandidate, error) {
 	modelRef, providerModelID := primaryModelSelector(session)
 	requestModelID := requestModel(request)
 	if requestModelID != "" {
@@ -35,7 +35,7 @@ func (r *Resolver) resolveFallbackRuntimeCandidate(ctx context.Context, session 
 	if fallback == nil {
 		return nil, validation("runtime fallback candidate is nil")
 	}
-	instance, err := r.loadProviderSurfaceBindingByID(ctx, fallback.GetProviderRuntimeRef().GetSurfaceId())
+	instance, err := r.loadProviderBySurfaceID(ctx, fallback.GetProviderRuntimeRef().GetSurfaceId())
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (r *Resolver) resolveFallbackRuntimeCandidate(ctx context.Context, session 
 	}
 }
 
-func (r *Resolver) resolveRuntimeCandidate(ctx context.Context, providerID string, instance *SurfaceBindingProjection, modelRef *modelv1.ModelRef, providerModelID string) (*RuntimeCandidate, error) {
+func (r *Resolver) resolveRuntimeCandidate(ctx context.Context, providerID string, instance *ProviderProjection, modelRef *modelv1.ModelRef, providerModelID string) (*RuntimeCandidate, error) {
 	resolvedProviderModel, err := r.resolveProviderModel(ctx, instance, modelRef, providerModelID)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (r *Resolver) resolveRuntimeCandidate(ctx context.Context, providerID strin
 	}, nil
 }
 
-func (r *Resolver) resolveProviderModel(ctx context.Context, instance *SurfaceBindingProjection, modelRef *modelv1.ModelRef, providerModelID string) (*providerv1.ResolvedProviderModel, error) {
+func (r *Resolver) resolveProviderModel(ctx context.Context, instance *ProviderProjection, modelRef *modelv1.ModelRef, providerModelID string) (*providerv1.ResolvedProviderModel, error) {
 	binding, err := r.selectModelBinding(ctx, instance, modelRef, providerModelID)
 	if err != nil {
 		return nil, err
@@ -73,9 +73,9 @@ func (r *Resolver) resolveProviderModel(ctx context.Context, instance *SurfaceBi
 	if err != nil {
 		return nil, err
 	}
-	runtime := proto.Clone(instance.Surface.GetRuntime()).(*providerv1.ProviderSurfaceRuntime)
+	runtime := proto.Clone(instance.Provider.GetRuntime()).(*providerv1.ProviderSurfaceRuntime)
 	return &providerv1.ResolvedProviderModel{
-		SurfaceId:       surfaceID(instance.Surface),
+		SurfaceId:       instance.Provider.GetSurfaceId(),
 		ProviderModelId: binding.providerModelID,
 		Protocol:        providerv1.RuntimeProtocol(runtime),
 		BaseUrl:         providerv1.RuntimeBaseURL(runtime),
@@ -85,21 +85,21 @@ func (r *Resolver) resolveProviderModel(ctx context.Context, instance *SurfaceBi
 	}, nil
 }
 
-func (r *Resolver) selectModelBinding(ctx context.Context, instance *SurfaceBindingProjection, modelRef *modelv1.ModelRef, providerModelID string) (*modelBinding, error) {
-	catalog := instance.Surface.GetRuntime().GetCatalog()
+func (r *Resolver) selectModelBinding(ctx context.Context, instance *ProviderProjection, modelRef *modelv1.ModelRef, providerModelID string) (*modelBinding, error) {
+	catalog := instance.Provider.GetRuntime().GetCatalog()
 	if normalizedRef := normalizeModelRef(modelRef); normalizedRef != nil {
 		entry, err := findEntryByModelRef(catalog, normalizedRef)
 		if err != nil {
 			return nil, err
 		}
 		if entry == nil {
-			return nil, validationf("provider surface binding %q does not expose model_ref %q", instance.Surface.GetSurfaceId(), normalizedRef.GetModelId())
+			return nil, validationf("provider surface %q does not expose model_ref %q", instance.Provider.GetSurfaceId(), normalizedRef.GetModelId())
 		}
 		return &modelBinding{providerModelID: entry.GetProviderModelId(), modelRef: normalizedRef, source: sourceFromCatalog(catalog)}, nil
 	}
 	providerModelID = strings.TrimSpace(providerModelID)
 	if providerModelID == "" {
-		return nil, validationf("provider surface binding %q provider_model_id is empty", instance.Surface.GetSurfaceId())
+		return nil, validationf("provider surface %q provider_model_id is empty", instance.Provider.GetSurfaceId())
 	}
 	if entry := findEntryByProviderModelID(catalog, providerModelID); entry != nil {
 		ref := normalizeModelRef(entry.GetModelRef())
@@ -190,7 +190,7 @@ func sourceFromCatalog(catalog *providerv1.ProviderModelCatalog) providerv1.Cata
 	return providerv1.CatalogSource_CATALOG_SOURCE_FALLBACK_CONFIG
 }
 
-func surfaceID(instance *providerv1.ProviderSurfaceBinding) string {
+func surfaceID(instance *providerv1.Provider) string {
 	if instance == nil {
 		return ""
 	}

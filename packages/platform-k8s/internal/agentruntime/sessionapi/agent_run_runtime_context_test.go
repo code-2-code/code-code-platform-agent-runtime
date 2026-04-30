@@ -220,8 +220,9 @@ func (runtimeContextRuntimeCatalog) ResolveContainerImage(context.Context, strin
 	return nil, nil
 }
 
-func (runtimeContextRuntimeCatalog) GetProviderSurfaceBinding(_ context.Context, surfaceID string) (*agentexecution.SurfaceBindingProjection, error) {
-	return &agentexecution.SurfaceBindingProjection{Surface: &providerv1.ProviderSurfaceBinding{
+func (runtimeContextRuntimeCatalog) GetProviderBySurfaceID(_ context.Context, surfaceID string) (*agentexecution.ProviderProjection, error) {
+	return &agentexecution.ProviderProjection{Provider: &providerv1.Provider{
+		ProviderId:            "provider-account-1",
 		SurfaceId:             surfaceID,
 		ProviderCredentialRef: &providerv1.ProviderCredentialRef{ProviderCredentialId: "cred-1"},
 		Runtime: &providerv1.ProviderSurfaceRuntime{
@@ -290,11 +291,11 @@ func testAgentRunState(runID string) *agentrunv1.AgentRunState {
 			AgentRuntimeId: "codex",
 			ContainerImage: "registry.local/codex-runtime:gpt5",
 			AuthRequirement: &agentrunv1.AgentRunAuthRequirement{
-				ProviderId:               "provider-account-1",
-				ProviderSurfaceBindingId: "surface-1",
-				AuthStatus:               "bound",
-				RuntimeUrl:               "https://api.example.test/v1",
-				MaterializationKey:       "codex.openai-oauth",
+				ProviderId:         "provider-account-1",
+				SurfaceId:          "surface-1",
+				AuthStatus:         "bound",
+				RuntimeUrl:         "https://api.example.test/v1",
+				MaterializationKey: "codex.openai-oauth",
 				ProviderRunBinding: &providerv1.ProviderRunBinding{
 					ProviderId:         "provider-account-1",
 					CredentialGrantRef: &credentialv1.CredentialGrantRef{GrantId: "cred-1"},

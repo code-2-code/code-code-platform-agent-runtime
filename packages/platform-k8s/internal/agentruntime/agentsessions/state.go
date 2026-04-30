@@ -5,6 +5,7 @@ import (
 
 	agentsessionv1 "code-code.internal/go-contract/platform/agent_session/v1"
 	platformv1alpha1 "code-code.internal/platform-k8s/api/v1alpha1"
+	"code-code.internal/platform-k8s/internal/platform/phaseconv"
 	"code-code.internal/platform-k8s/internal/platform/protostate"
 )
 
@@ -44,7 +45,7 @@ func sessionStatusFromResourceStatus(resource *platformv1alpha1.AgentSessionReso
 	}
 	return &agentsessionv1.AgentSessionStatus{
 		SessionId:                sessionID,
-		Phase:                    toProtoSessionPhase(status.Phase),
+		Phase:                    phaseconv.FromK8sSessionPhase(status.Phase),
 		ObservedGeneration:       status.ObservedGeneration,
 		RuntimeConfigGeneration:  status.RuntimeConfigGeneration,
 		ResourceConfigGeneration: status.ResourceConfigGeneration,
@@ -65,19 +66,4 @@ func activeRunRef(runID string) *agentsessionv1.AgentSessionActiveRunRef {
 		return nil
 	}
 	return &agentsessionv1.AgentSessionActiveRunRef{RunId: strings.TrimSpace(runID)}
-}
-
-func toProtoSessionPhase(phase platformv1alpha1.AgentSessionResourcePhase) agentsessionv1.AgentSessionPhase {
-	switch phase {
-	case platformv1alpha1.AgentSessionResourcePhasePending:
-		return agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_PENDING
-	case platformv1alpha1.AgentSessionResourcePhaseReady:
-		return agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_READY
-	case platformv1alpha1.AgentSessionResourcePhaseRunning:
-		return agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_RUNNING
-	case platformv1alpha1.AgentSessionResourcePhaseFailed:
-		return agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_FAILED
-	default:
-		return agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_UNSPECIFIED
-	}
 }

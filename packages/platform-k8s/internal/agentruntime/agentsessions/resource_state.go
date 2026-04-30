@@ -6,6 +6,7 @@ import (
 	agentsessionv1 "code-code.internal/go-contract/platform/agent_session/v1"
 	conditionv1 "code-code.internal/go-contract/platform/condition/v1"
 	platformv1alpha1 "code-code.internal/platform-k8s/api/v1alpha1"
+	"code-code.internal/platform-k8s/internal/platform/phaseconv"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,7 +46,7 @@ func resourceStatusFromState(status *agentsessionv1.AgentSessionStatus) platform
 			ObservedGeneration: status.GetObservedGeneration(),
 			Conditions:         sessionMetaConditions(status.GetConditions()),
 		},
-		Phase:                    resourceSessionPhase(status.GetPhase()),
+		Phase:                    phaseconv.ToK8sSessionPhase(status.GetPhase()),
 		RuntimeConfigGeneration:  status.GetRuntimeConfigGeneration(),
 		ResourceConfigGeneration: status.GetResourceConfigGeneration(),
 		RealizedRuleRevision:     status.GetRealizedRuleRevision(),
@@ -60,21 +61,6 @@ func resourceStatusFromState(status *agentsessionv1.AgentSessionStatus) platform
 		out.UpdatedAt = timePtr(status.GetUpdatedAt().AsTime())
 	}
 	return out
-}
-
-func resourceSessionPhase(phase agentsessionv1.AgentSessionPhase) platformv1alpha1.AgentSessionResourcePhase {
-	switch phase {
-	case agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_PENDING:
-		return platformv1alpha1.AgentSessionResourcePhasePending
-	case agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_READY:
-		return platformv1alpha1.AgentSessionResourcePhaseReady
-	case agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_RUNNING:
-		return platformv1alpha1.AgentSessionResourcePhaseRunning
-	case agentsessionv1.AgentSessionPhase_AGENT_SESSION_PHASE_FAILED:
-		return platformv1alpha1.AgentSessionResourcePhaseFailed
-	default:
-		return ""
-	}
 }
 
 func sessionMetaConditions(items []*conditionv1.Condition) []metav1.Condition {

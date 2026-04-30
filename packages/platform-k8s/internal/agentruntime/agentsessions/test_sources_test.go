@@ -94,13 +94,13 @@ func (s *testProfileSource) GetMCP(_ context.Context, mcpID string) (*mcpv1.MCPS
 
 type testRuntimeReferences struct {
 	executionClasses map[string]map[string]struct{}
-	surfaces         map[string]*agentexecution.SurfaceBindingProjection
+	surfaces         map[string]*agentexecution.ProviderProjection
 }
 
 func newTestRuntimeReferences(objects []any) testRuntimeReferences {
 	refs := testRuntimeReferences{
 		executionClasses: map[string]map[string]struct{}{},
-		surfaces:         map[string]*agentexecution.SurfaceBindingProjection{},
+		surfaces:         map[string]*agentexecution.ProviderProjection{},
 	}
 	for _, object := range objects {
 		switch resource := object.(type) {
@@ -113,10 +113,13 @@ func newTestRuntimeReferences(objects []any) testRuntimeReferences {
 				refs.executionClasses[cliID][strings.TrimSpace(executionClass)] = struct{}{}
 			}
 		case *providerv1.Provider:
-			for _, surface := range resource.GetSurfaces() {
-				refs.surfaces[strings.TrimSpace(surface.GetSurfaceId())] = &agentexecution.SurfaceBindingProjection{
-					Surface: surface,
-				}
+			refs.surfaces[strings.TrimSpace(resource.GetSurfaceId())] = &agentexecution.ProviderProjection{
+				Provider: &providerv1.Provider{
+					ProviderId:            "provider-" + strings.TrimSpace(resource.GetSurfaceId()),
+					SurfaceId:             resource.GetSurfaceId(),
+					ProviderCredentialRef: resource.GetProviderCredentialRef(),
+					Runtime:               resource.GetRuntime(),
+				},
 			}
 		}
 	}
@@ -135,31 +138,27 @@ func newTestCLIReference(cliID string, executionClasses ...string) testCLIRefere
 	return testCLIReference{cliID: cliID, executionClasses: executionClasses}
 }
 
-func testProviderSurfaceBindingProvider(surfaceID string) *providerv1.Provider {
+func testProvider(surfaceID string) *providerv1.Provider {
 	surfaceID = strings.TrimSpace(surfaceID)
 	return &providerv1.Provider{
 		ProviderId: "test-provider",
-		Surfaces: []*providerv1.ProviderSurfaceBinding{{
-			SurfaceId:             surfaceID,
-			ProviderCredentialRef: &providerv1.ProviderCredentialRef{ProviderCredentialId: "credential-openai"},
-			Runtime: &providerv1.ProviderSurfaceRuntime{
-				DisplayName: "Test surface",
-				Origin:      providerv1.ProviderSurfaceOrigin_PROVIDER_SURFACE_ORIGIN_DERIVED,
-				Access: &providerv1.ProviderSurfaceRuntime_Api{
-					Api: &providerv1.ProviderAPISurfaceRuntime{
-						Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
-						BaseUrl:  "https://api.openai.test/v1",
-					},
-				},
-				Catalog: &providerv1.ProviderModelCatalog{
-					Models: []*providerv1.ProviderModelCatalogEntry{{
-						ProviderModelId: "gpt-5",
-						ModelRef:        &modelv1.ModelRef{VendorId: "openai", ModelId: "gpt-5"},
-					}},
-					Source: providerv1.CatalogSource_CATALOG_SOURCE_VENDOR_PRESET,
-				},
+		SurfaceId:  surfaceID,
+		ProviderCredentialRef: &providerv1.ProviderCredentialRef{
+			ProviderCredentialId: "cred-" + surfaceID,
+		},
+		Runtime: &providerv1.ProviderSurfaceRuntime{
+			Access: &providerv1.ProviderSurfaceRuntime_Api{Api: &providerv1.ProviderAPISurfaceRuntime{
+				Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
+				BaseUrl:  "https://" + surfaceID + ".example.test/v1",
+			}},
+			Catalog: &providerv1.ProviderModelCatalog{
+				Models: []*providerv1.ProviderModelCatalogEntry{{
+					ProviderModelId: "gpt-5",
+					ModelRef:        &modelv1.ModelRef{VendorId: "openai", ModelId: "gpt-5"},
+				}},
+				Source: providerv1.CatalogSource_CATALOG_SOURCE_VENDOR_PRESET,
 			},
-		}},
+		},
 	}
 }
 
@@ -183,10 +182,10 @@ func (r testRuntimeReferences) ResolveContainerImage(ctx context.Context, provid
 	}, nil
 }
 
-func (r testRuntimeReferences) GetProviderSurfaceBinding(_ context.Context, surfaceID string) (*agentexecution.SurfaceBindingProjection, error) {
+func (r testRuntimeReferences) GetProviderBySurfaceID(_ context.Context, surfaceID string) (*agentexecution.ProviderProjection, error) {
 	surface, ok := r.surfaces[strings.TrimSpace(surfaceID)]
 	if !ok {
-		return nil, domainerror.NewNotFound("test provider surface binding %q not found", surfaceID)
+		return nil, domainerror.NewNotFound("test provider surface %q not found", surfaceID)
 	}
 	return surface, nil
 }

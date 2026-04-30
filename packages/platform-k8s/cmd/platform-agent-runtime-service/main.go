@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -128,7 +126,7 @@ func main() {
 		})
 		must(err)
 		defer timelineSink.Close()
-		log.Printf("timeline sink enabled (nats+otel)")
+		slog.Info("timeline sink enabled", "backend", "nats+otel")
 	}
 	var runOutputs runevents.Reader
 	if timelineNATSURL != "" {
@@ -138,7 +136,7 @@ func main() {
 		})
 		must(err)
 		defer runOutputs.Close()
-		log.Printf("run output reader enabled (nats)")
+		slog.Info("run output reader enabled", "backend", "nats")
 	}
 
 	manager, err := ctrl.NewManager(config, ctrl.Options{
@@ -222,7 +220,7 @@ func main() {
 	triggerHandler, err := sessionServer.NewTriggerHandler(slog.Default(), internalActionToken)
 	must(err)
 	if internalActionToken == "" {
-		log.Printf("internal action endpoints are disabled (env PLATFORM_AGENT_RUNTIME_SERVICE_INTERNAL_ACTION_TOKEN is empty)")
+		slog.Warn("internal action endpoints are disabled", "reason", "PLATFORM_AGENT_RUNTIME_SERVICE_INTERNAL_ACTION_TOKEN is empty")
 	}
 	httpServer := &http.Server{
 		Addr:              httpAddr,
@@ -234,7 +232,7 @@ func main() {
 	defer cancel()
 	go func() {
 		if err := manager.Start(ctx); err != nil && ctx.Err() == nil {
-			log.Printf("agent run controller manager stopped: %v", err)
+			slog.Error("agent run controller manager stopped", "error", err)
 			cancel()
 		}
 	}()
@@ -246,28 +244,28 @@ func main() {
 		must(err)
 		go func() { _ = publisher.Run(ctx) }()
 		must(sessionServer.StartDomainEventConsumers(ctx, statePool, domainEventsNATSURL))
-		log.Printf("domain event bus enabled (nats=%s)", domainEventsNATSURL)
+		slog.Info("domain event bus enabled", "nats", domainEventsNATSURL)
 	}
 	if timelineNATSURL != "" {
 		go func() {
 			if err := sessionServer.RunTerminalResultProjector(ctx, timelineNATSURL); err != nil && ctx.Err() == nil {
-				log.Printf("run terminal result projector stopped: %v", err)
+				slog.Error("run terminal result projector stopped", "error", err)
 			}
 		}()
-		log.Printf("run terminal result projector enabled (nats)")
+		slog.Info("run terminal result projector enabled", "backend", "nats")
 		go func() {
 			if err := sessionServer.RunOutputMessageProjector(ctx, timelineNATSURL); err != nil && ctx.Err() == nil {
-				log.Printf("run output message projector stopped: %v", err)
+				slog.Error("run output message projector stopped", "error", err)
 			}
 		}()
-		log.Printf("run output message projector enabled (nats)")
+		slog.Info("run output message projector enabled", "backend", "nats")
 	}
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
-		log.Println("shutting down platform-agent-runtime-service...")
+		slog.Info("shutting down platform-agent-runtime-service")
 		healthServer.SetServingStatus("", healthv1.HealthCheckResponse_NOT_SERVING)
 		healthServer.SetServingStatus(managementv1.AgentSessionManagementService_ServiceDesc.ServiceName, healthv1.HealthCheckResponse_NOT_SERVING)
 		cancel()
@@ -278,78 +276,21 @@ func main() {
 	}()
 
 	go func() {
-		log.Printf("platform-agent-runtime-service HTTP trigger listening on %s", httpAddr)
+		slog.Info("platform-agent-runtime-service HTTP trigger listening", "addr", httpAddr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			must(err)
 		}
 	}()
 
-	log.Printf("platform-agent-runtime-service listening on %s (namespace=%s runtime_namespace=%s profile=%s provider=%s cli_runtime=%s model=%s)", addr, namespace, runtimeNamespace, profileAddr, providerAddr, cliRuntimeAddr, modelAddr)
+	slog.Info("platform-agent-runtime-service listening", "addr", addr, "namespace", namespace, "runtime_namespace", runtimeNamespace, "profile", profileAddr, "provider", providerAddr, "cli_runtime", cliRuntimeAddr, "model", modelAddr)
 	if actionRetryPolicy != nil {
-		log.Printf(
-			"platform-agent-runtime-service action retry policy override: max_retries=%d base_backoff=%s max_backoff=%s",
-			actionRetryPolicy.MaxRetries,
-			actionRetryPolicy.BaseBackoff,
-			actionRetryPolicy.MaxBackoff,
+		slog.Info("platform-agent-runtime-service action retry policy override",
+			"max_retries", actionRetryPolicy.MaxRetries,
+			"base_backoff", actionRetryPolicy.BaseBackoff,
+			"max_backoff", actionRetryPolicy.MaxBackoff,
 		)
 	}
 	if err := grpcServer.Serve(listener); err != nil {
 		must(err)
-	}
-}
-
-func envOrDefault(key, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
-	}
-	return value
-}
-
-func firstEnv(keys ...string) string {
-	for _, key := range keys {
-		value := strings.TrimSpace(os.Getenv(key))
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func actionRetryPolicyFromEnv() (*agentsessionactions.RetryPolicy, error) {
-	maxRetriesRaw := strings.TrimSpace(os.Getenv("PLATFORM_AGENT_RUNTIME_SERVICE_ACTION_RETRY_MAX_RETRIES"))
-	baseBackoffRaw := strings.TrimSpace(os.Getenv("PLATFORM_AGENT_RUNTIME_SERVICE_ACTION_RETRY_BASE_BACKOFF"))
-	maxBackoffRaw := strings.TrimSpace(os.Getenv("PLATFORM_AGENT_RUNTIME_SERVICE_ACTION_RETRY_MAX_BACKOFF"))
-	if maxRetriesRaw == "" && baseBackoffRaw == "" && maxBackoffRaw == "" {
-		return nil, nil
-	}
-	policy := agentsessionactions.RetryPolicy{}
-	if maxRetriesRaw != "" {
-		value, err := strconv.ParseInt(maxRetriesRaw, 10, 32)
-		if err != nil {
-			return nil, err
-		}
-		policy.MaxRetries = int32(value)
-	}
-	if baseBackoffRaw != "" {
-		value, err := time.ParseDuration(baseBackoffRaw)
-		if err != nil {
-			return nil, err
-		}
-		policy.BaseBackoff = value
-	}
-	if maxBackoffRaw != "" {
-		value, err := time.ParseDuration(maxBackoffRaw)
-		if err != nil {
-			return nil, err
-		}
-		policy.MaxBackoff = value
-	}
-	return &policy, nil
-}
-
-func must(err error) {
-	if err != nil {
-		log.Fatal(err)
 	}
 }

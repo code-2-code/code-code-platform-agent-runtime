@@ -220,7 +220,7 @@ func TestReconcilerCreatesCarrierPVCsAndMarksSessionReadyBeforeBinding(t *testin
 
 	updated := getSessionResource(t, ctx, client, resource.Name)
 	if updated.Status.Phase != platformv1alpha1.AgentSessionResourcePhaseReady {
-		t.Fatalf("phase = %q, want READY", updated.Status.Phase)
+		t.Fatalf("phase = %q, want READY, message: %q, conditions: %+v", updated.Status.Phase, updated.Status.Message, updated.Status.Conditions)
 	}
 	assertCondition(t, updated.Status.Conditions, string(platformcontract.AgentSessionConditionTypeWorkspaceReady), string(metav1.ConditionTrue))
 	assertCondition(t, updated.Status.Conditions, string(platformcontract.AgentSessionConditionTypeWarmStateReady), string(metav1.ConditionTrue))
@@ -414,7 +414,7 @@ func readinessRuntimeReferenceObjects() []any {
 	for _, object := range readinessDependencyObjects() {
 		objects = append(objects, object)
 	}
-	objects = append(objects, testProviderSurfaceBindingProvider("provider-instance-1"))
+	objects = append(objects, testProvider("provider-instance-1"))
 	return objects
 }
 

@@ -55,7 +55,7 @@ func prepareContainer(body prepareAgentRunJobTriggerRequest) corev1.Container {
 			{Name: "AGENT_RUN_ID", Value: body.RunID},
 			{Name: "AGENT_RUN_RUNTIME_URL", Value: body.RuntimeURL},
 			{Name: "AGENT_RUN_AUTH_MATERIALIZATION_KEY", Value: body.AuthMaterializationKey},
-			{Name: "AGENT_RUN_PROVIDER_SURFACE_BINDING_ID", Value: body.ProviderSurfaceBindingID},
+			{Name: "AGENT_RUN_SURFACE_ID", Value: body.SurfaceID},
 			{Name: "HOME", Value: body.RuntimeDataDir},
 		},
 		VolumeMounts: []corev1.VolumeMount{

@@ -47,8 +47,8 @@ func TestCreateActionFreezesRunTurnSnapshot(t *testing.T) {
 	if got, want := snapshot.GetContainerImage(), "ghcr.io/openai/codex:latest"; got != want {
 		t.Fatalf("container_image = %q, want %q", got, want)
 	}
-	if got, want := snapshot.GetAuthRequirement().GetProviderSurfaceBindingId(), "openai-default"; got != want {
-		t.Fatalf("auth_requirement.provider_surface_binding_id = %q, want %q", got, want)
+	if got, want := snapshot.GetAuthRequirement().GetSurfaceId(), "openai-default"; got != want {
+		t.Fatalf("auth_requirement.surface_id = %q, want %q", got, want)
 	}
 	if got, want := snapshot.GetRunRequest().GetResolvedProviderModel().GetProviderModelId(), "gpt-5"; got != want {
 		t.Fatalf("resolved_provider_model.provider_model_id = %q, want %q", got, want)

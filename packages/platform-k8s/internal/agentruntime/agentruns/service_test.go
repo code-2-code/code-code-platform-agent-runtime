@@ -52,8 +52,8 @@ func TestCreateRunFreezesSessionGenerationsAndImage(t *testing.T) {
 	if got, want := state.GetSpec().GetRequest().GetInput().GetParameters().GetFields()["model"].GetStringValue(), "gpt-5"; got != want {
 		t.Fatalf("input.parameters.model = %q, want %q", got, want)
 	}
-	if got, want := state.GetSpec().GetAuthRequirement().GetProviderSurfaceBindingId(), "openai-default"; got != want {
-		t.Fatalf("auth_requirement.provider_surface_binding_id = %q, want %q", got, want)
+	if got, want := state.GetSpec().GetAuthRequirement().GetSurfaceId(), "openai-default"; got != want {
+		t.Fatalf("auth_requirement.surface_id = %q, want %q", got, want)
 	}
 	if got, want := state.GetSpec().GetAuthRequirement().GetAuthStatus(), "bound"; got != want {
 		t.Fatalf("auth_requirement.auth_status = %q, want %q", got, want)
@@ -294,9 +294,9 @@ func testRunTurnSnapshot(runID string, prompt string, model string) *agentsessio
 		CpuRequest:               "1000m",
 		MemoryRequest:            "2Gi",
 		AuthRequirement: &agentrunv1.AgentRunAuthRequirement{
-			ProviderId:               "codex",
-			ProviderSurfaceBindingId: "openai-default",
-			AuthStatus:               "bound",
+			ProviderId: "codex",
+			SurfaceId:  "openai-default",
+			AuthStatus: "bound",
 		},
 		RuntimeEnvironment: &agentcorev1.RuntimeEnvironment{
 			WorkspaceDir: "/workspace",

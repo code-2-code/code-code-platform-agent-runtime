@@ -21,7 +21,7 @@ type Projection struct {
 	ObservabilityProfileIDs        []string
 	ProviderID                     string
 	VendorID                       string
-	ProviderSurfaceBindingID       string
+	SurfaceID                      string
 	CLIID                          string
 }
 

@@ -9,7 +9,7 @@ import (
 	agentrunv1 "code-code.internal/go-contract/platform/agent_run/v1"
 	providerv1 "code-code.internal/go-contract/provider/v1"
 	platformv1alpha1 "code-code.internal/platform-k8s/api/v1alpha1"
-	clisupport "code-code.internal/platform-k8s/internal/supportservice/clidefinitions/support"
+	clisupport "code-code.internal/platform-k8s/internal/platform/clidefinitions/support"
 )
 
 const authStatusBound = "bound"
@@ -59,11 +59,11 @@ func (r *Resolver) Resolve(ctx context.Context, session *platformv1alpha1.AgentS
 	if err != nil {
 		return nil, err
 	}
-	instance, err := r.loadPrimaryProviderSurfaceBinding(ctx, session)
+	instance, err := r.loadPrimaryProvider(ctx, session)
 	if err != nil {
 		return nil, err
 	}
-	authRequirement, err := r.resolveAuthRequirement(ctx, session.Spec.Session.GetProviderId(), instance, providerv1.RuntimeBaseURL(instance.Surface.GetRuntime()))
+	authRequirement, err := r.resolveAuthRequirement(ctx, session.Spec.Session.GetProviderId(), instance, providerv1.RuntimeBaseURL(instance.Provider.GetRuntime()))
 	if err != nil {
 		return nil, err
 	}
@@ -75,35 +75,35 @@ func (r *Resolver) Resolve(ctx context.Context, session *platformv1alpha1.AgentS
 	}, nil
 }
 
-func (r *Resolver) resolveAuthRequirement(ctx context.Context, providerID string, instance *SurfaceBindingProjection, runtimeURL string) (*agentrunv1.AgentRunAuthRequirement, error) {
-	if instance == nil || instance.Surface == nil {
-		return nil, validation("provider surface binding is invalid")
+func (r *Resolver) resolveAuthRequirement(ctx context.Context, providerID string, instance *ProviderProjection, runtimeURL string) (*agentrunv1.AgentRunAuthRequirement, error) {
+	if instance == nil || instance.Provider == nil {
+		return nil, validation("provider surface is invalid")
 	}
 	materializationKey, err := r.resolveMaterializationKey(ctx, providerID, instance)
 	if err != nil {
 		return nil, err
 	}
 	return &agentrunv1.AgentRunAuthRequirement{
-		ProviderId:               strings.TrimSpace(providerID),
-		ProviderSurfaceBindingId: instance.Surface.GetSurfaceId(),
-		AuthStatus:               authStatusBound,
-		RuntimeUrl:               strings.TrimSpace(runtimeURL),
-		MaterializationKey:       materializationKey,
+		ProviderId:         strings.TrimSpace(providerID),
+		SurfaceId:          instance.Provider.GetSurfaceId(),
+		AuthStatus:         authStatusBound,
+		RuntimeUrl:         strings.TrimSpace(runtimeURL),
+		MaterializationKey: materializationKey,
 	}, nil
 }
 
-func (r *Resolver) resolveMaterializationKey(ctx context.Context, cliID string, instance *SurfaceBindingProjection) (string, error) {
+func (r *Resolver) resolveMaterializationKey(ctx context.Context, cliID string, instance *ProviderProjection) (string, error) {
 	if r == nil || r.runtime == nil {
 		return "", validation("runtime catalog is unavailable")
 	}
-	if instance == nil || instance.Surface == nil {
-		return "", validation("provider surface binding is invalid")
+	if instance == nil || instance.Provider == nil {
+		return "", validation("provider surface is invalid")
 	}
 	cli, err := r.runtime.GetCLI(ctx, cliID)
 	if err != nil {
 		return "", err
 	}
-	protocol := providerv1.RuntimeProtocol(instance.Surface.GetRuntime())
+	protocol := providerv1.RuntimeProtocol(instance.Provider.GetRuntime())
 	materialization, err := clisupport.ResolveAuthMaterialization(cli, credentialv1.CredentialKind_CREDENTIAL_KIND_API_KEY, protocol)
 	if err != nil && cli.GetOauth() != nil {
 		materialization, err = clisupport.ResolveAuthMaterialization(cli, credentialv1.CredentialKind_CREDENTIAL_KIND_OAUTH, protocol)
@@ -114,34 +114,34 @@ func (r *Resolver) resolveMaterializationKey(ctx context.Context, cliID string, 
 	return strings.TrimSpace(materialization.GetMaterializationKey()), nil
 }
 
-func (r *Resolver) loadPrimaryProviderSurfaceBinding(ctx context.Context, session *platformv1alpha1.AgentSessionResource) (*SurfaceBindingProjection, error) {
+func (r *Resolver) loadPrimaryProvider(ctx context.Context, session *platformv1alpha1.AgentSessionResource) (*ProviderProjection, error) {
 	if session == nil || session.Spec.Session == nil {
 		return nil, validation("session is invalid")
 	}
 	instanceID := strings.TrimSpace(session.Spec.Session.GetRuntimeConfig().GetProviderRuntimeRef().GetSurfaceId())
 	if instanceID == "" {
-		return nil, validationf("session %q provider_surface_binding_id is empty", session.Spec.Session.GetSessionId())
+		return nil, validationf("session %q surface_id is empty", session.Spec.Session.GetSessionId())
 	}
-	return r.loadProviderSurfaceBindingByID(ctx, instanceID)
+	return r.loadProviderBySurfaceID(ctx, instanceID)
 }
 
-func (r *Resolver) loadProviderSurfaceBindingByID(ctx context.Context, instanceID string) (*SurfaceBindingProjection, error) {
+func (r *Resolver) loadProviderBySurfaceID(ctx context.Context, instanceID string) (*ProviderProjection, error) {
 	instanceID = strings.TrimSpace(instanceID)
 	if instanceID == "" {
-		return nil, validation("provider surface binding id is empty")
+		return nil, validation("provider surface id is empty")
 	}
-	resource, err := r.runtime.GetProviderSurfaceBinding(ctx, instanceID)
+	resource, err := r.runtime.GetProviderBySurfaceID(ctx, instanceID)
 	if err != nil {
 		return nil, err
 	}
-	if resource.Surface == nil {
-		return nil, validationf("provider surface binding %q is missing payload", instanceID)
+	if resource.Provider == nil {
+		return nil, validationf("provider surface %q is missing payload", instanceID)
 	}
-	if resource.Surface.GetRuntime() == nil || providerv1.RuntimeKind(resource.Surface.GetRuntime()) == providerv1.ProviderSurfaceKind_PROVIDER_SURFACE_KIND_UNSPECIFIED {
-		return nil, validationf("provider surface binding %q runtime is missing", instanceID)
+	if resource.Provider.GetRuntime() == nil || providerv1.RuntimeKind(resource.Provider.GetRuntime()) == providerv1.ProviderSurfaceKind_PROVIDER_SURFACE_KIND_UNSPECIFIED {
+		return nil, validationf("provider surface %q runtime is missing", instanceID)
 	}
-	if strings.TrimSpace(resource.Surface.GetProviderCredentialRef().GetProviderCredentialId()) == "" {
-		return nil, validationf("provider surface binding %q auth binding is empty", instanceID)
+	if strings.TrimSpace(resource.Provider.GetProviderCredentialRef().GetProviderCredentialId()) == "" {
+		return nil, validationf("provider surface %q auth binding is empty", instanceID)
 	}
 	return resource, nil
 }

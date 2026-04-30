@@ -21,13 +21,13 @@ type ContainerImage struct {
 	MemoryRequest string
 }
 
-type SurfaceBindingProjection struct {
-	Surface *providerv1.ProviderSurfaceBinding
+type ProviderProjection struct {
+	Provider *providerv1.Provider
 }
 
 type RuntimeCatalog interface {
 	ResolveContainerImage(ctx context.Context, providerID, executionClass string) (*ContainerImage, error)
-	GetProviderSurfaceBinding(ctx context.Context, surfaceID string) (*SurfaceBindingProjection, error)
+	GetProviderBySurfaceID(ctx context.Context, surfaceID string) (*ProviderProjection, error)
 	GetCLI(ctx context.Context, cliID string) (*supportv1.CLI, error)
 }
 
@@ -115,8 +115,8 @@ func (c *RemoteRuntimeCatalog) latestAvailableRuntimeImage(ctx context.Context, 
 	return "", domainerror.NewNotFound("platformk8s/agentexecution: no available runtime image for cli %q execution class %q", providerID, executionClass)
 }
 
-func (c *RemoteRuntimeCatalog) GetProviderSurfaceBinding(ctx context.Context, surfaceID string) (*SurfaceBindingProjection, error) {
-	response, err := c.providers.ListProviderSurfaceBindings(ctx, &providerservicev1.ListProviderSurfaceBindingsRequest{})
+func (c *RemoteRuntimeCatalog) GetProviderBySurfaceID(ctx context.Context, surfaceID string) (*ProviderProjection, error) {
+	response, err := c.providers.ListProviders(ctx, &providerservicev1.ListProvidersRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -125,16 +125,17 @@ func (c *RemoteRuntimeCatalog) GetProviderSurfaceBinding(ctx context.Context, su
 		if strings.TrimSpace(item.GetSurfaceId()) != surfaceID {
 			continue
 		}
-		surface := &providerv1.ProviderSurfaceBinding{
+		provider := &providerv1.Provider{
+			ProviderId:            item.GetProviderId(),
 			SurfaceId:             item.GetSurfaceId(),
 			ProviderCredentialRef: &providerv1.ProviderCredentialRef{ProviderCredentialId: item.GetProviderCredentialId()},
 		}
 		if item.GetRuntime() != nil {
-			surface.Runtime = proto.Clone(item.GetRuntime()).(*providerv1.ProviderSurfaceRuntime)
+			provider.Runtime = proto.Clone(item.GetRuntime()).(*providerv1.ProviderSurfaceRuntime)
 		}
-		return &SurfaceBindingProjection{Surface: surface}, nil
+		return &ProviderProjection{Provider: provider}, nil
 	}
-	return nil, domainerror.NewNotFound("platformk8s/agentexecution: provider surface binding %q not found", surfaceID)
+	return nil, domainerror.NewNotFound("platformk8s/agentexecution: provider surface %q not found", surfaceID)
 }
 
 func (c *RemoteRuntimeCatalog) GetCLI(ctx context.Context, cliID string) (*supportv1.CLI, error) {

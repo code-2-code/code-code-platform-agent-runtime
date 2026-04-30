@@ -35,21 +35,19 @@ func (testRuntimeCatalog) ResolveContainerImage(_ context.Context, providerID, e
 	}, nil
 }
 
-func (testRuntimeCatalog) GetProviderSurfaceBinding(_ context.Context, surfaceID string) (*agentexecution.SurfaceBindingProjection, error) {
+func (testRuntimeCatalog) GetProviderBySurfaceID(_ context.Context, surfaceID string) (*agentexecution.ProviderProjection, error) {
 	surfaceID = strings.TrimSpace(surfaceID)
 	for _, resource := range []*providerv1.Provider{
-		testProviderSurfaceBindingProvider(),
-		testFallbackProviderSurfaceBindingProvider(),
+		testProvider(),
+		testFallbackProvider(),
 	} {
-		surface, err := testProjectedSurfaceBinding(resource, surfaceID)
+		surface, err := testProjectedProvider(resource, surfaceID)
 		if err != nil {
-			return nil, err
+			continue
 		}
-		if surface != nil {
-			return &agentexecution.SurfaceBindingProjection{Surface: surface}, nil
-		}
+		return &agentexecution.ProviderProjection{Provider: surface}, nil
 	}
-	return nil, domainerror.NewNotFound("test provider surface binding %q not found", surfaceID)
+	return nil, domainerror.NewNotFound("test provider surface %q not found", surfaceID)
 }
 
 func (testRuntimeCatalog) GetCLI(_ context.Context, cliID string) (*supportv1.CLI, error) {
@@ -72,13 +70,11 @@ func (testRuntimeCatalog) GetCLI(_ context.Context, cliID string) (*supportv1.CL
 	}, nil
 }
 
-func testProjectedSurfaceBinding(provider *providerv1.Provider, surfaceID string) (*providerv1.ProviderSurfaceBinding, error) {
-	for _, surface := range provider.GetSurfaces() {
-		if strings.TrimSpace(surface.GetSurfaceId()) == surfaceID {
-			return surface, nil
-		}
+func testProjectedProvider(provider *providerv1.Provider, surfaceID string) (*providerv1.Provider, error) {
+	if strings.TrimSpace(provider.GetSurfaceId()) == surfaceID {
+		return provider, nil
 	}
-	return nil, nil
+	return nil, domainerror.NewNotFound("surface %q not found", surfaceID)
 }
 
 type testModelRegistry struct{}

@@ -22,16 +22,16 @@ func (s *SessionServer) validateAgentRunAuthProjection(ctx context.Context, body
 }
 
 func (s *SessionServer) agentRunAuthProjection(ctx context.Context, body prepareAgentRunJobTriggerRequest) (agentrunauth.Projection, error) {
-	surfaceProjection, err := s.runtimeCatalog.GetProviderSurfaceBinding(ctx, body.ProviderSurfaceBindingID)
+	providerProjection, err := s.runtimeCatalog.GetProviderBySurfaceID(ctx, body.SurfaceID)
 	if err != nil {
 		return agentrunauth.Projection{}, err
 	}
-	if surfaceProjection == nil || surfaceProjection.Surface == nil || surfaceProjection.Surface.GetRuntime() == nil || providerv1.RuntimeKind(surfaceProjection.Surface.GetRuntime()) == providerv1.ProviderSurfaceKind_PROVIDER_SURFACE_KIND_UNSPECIFIED {
-		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider surface binding %q runtime is invalid", body.ProviderSurfaceBindingID)
+	if providerProjection == nil || providerProjection.Provider == nil || providerProjection.Provider.GetRuntime() == nil || providerv1.RuntimeKind(providerProjection.Provider.GetRuntime()) == providerv1.ProviderSurfaceKind_PROVIDER_SURFACE_KIND_UNSPECIFIED {
+		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider surface %q runtime is invalid", body.SurfaceID)
 	}
-	credentialID := strings.TrimSpace(surfaceProjection.Surface.GetProviderCredentialRef().GetProviderCredentialId())
+	credentialID := strings.TrimSpace(providerProjection.Provider.GetProviderCredentialRef().GetProviderCredentialId())
 	if credentialID == "" {
-		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider surface binding %q credential is empty", body.ProviderSurfaceBindingID)
+		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider surface %q credential is empty", body.SurfaceID)
 	}
 	credentialResponse, err := s.auth.GetCredentialRuntimeProjection(ctx, &authv1.GetCredentialRuntimeProjectionRequest{
 		CredentialId: credentialID,
@@ -43,14 +43,14 @@ func (s *SessionServer) agentRunAuthProjection(ctx context.Context, body prepare
 	if credential == nil {
 		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: credential %q runtime projection is empty", credentialID)
 	}
-	runtime := surfaceProjection.Surface.GetRuntime()
+	runtime := providerProjection.Provider.GetRuntime()
 	cliID := firstNonEmpty(body.Job.CLIID, body.ProviderID, providerv1.RuntimeCLIID(runtime))
 	runtimeURL := firstNonEmpty(body.RuntimeURL, providerv1.RuntimeBaseURL(runtime))
 	protocol := providerv1.RuntimeProtocol(runtime)
 	capabilities, err := s.support.ResolveProviderCapabilities(ctx, &supportv1.ResolveProviderCapabilitiesRequest{
 		Subject: &supportv1.ResolveProviderCapabilitiesRequest_Runtime{Runtime: &supportv1.RuntimeCapabilitySubject{
 			ProviderId:             firstNonEmpty(body.ProviderID, cliID),
-			SurfaceId:              surfaceProjection.Surface.GetSurfaceId(),
+			SurfaceId:              providerProjection.Provider.GetSurfaceId(),
 			Protocol:               protocol,
 			CredentialKind:         credential.GetCredentialKind(),
 			RuntimeUrl:             runtimeURL,
@@ -95,7 +95,7 @@ func (s *SessionServer) agentRunAuthProjection(ctx context.Context, body prepare
 		ObservabilityProfileIDs:        observabilityProfileIDs(capabilities.GetObservability()),
 		ProviderID:                     firstNonEmpty(body.ProviderID, cliID),
 		VendorID:                       credential.GetVendorId(),
-		ProviderSurfaceBindingID:       surfaceProjection.Surface.GetSurfaceId(),
+		SurfaceID:                      providerProjection.Provider.GetSurfaceId(),
 		CLIID:                          cliID,
 	}, nil
 }

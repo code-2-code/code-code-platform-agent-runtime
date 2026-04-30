@@ -448,11 +448,11 @@ func testRunTurnSnapshot(runID string, prompt string, model string) *agentsessio
 	runRequest := testRunRequest(runID, prompt, model)
 	runRequest.ResolvedProviderModel = testResolvedProviderModel("openai-default", "https://api.openai.com/v1", model)
 	authRequirement := &agentrunv1.AgentRunAuthRequirement{
-		ProviderId:               "codex",
-		ProviderSurfaceBindingId: "openai-default",
-		AuthStatus:               "bound",
-		RuntimeUrl:               "https://api.openai.com/v1",
-		MaterializationKey:       "codex.openai-api-key",
+		ProviderId:         "codex",
+		SurfaceId:          "openai-default",
+		AuthStatus:         "bound",
+		RuntimeUrl:         "https://api.openai.com/v1",
+		MaterializationKey: "codex.openai-api-key",
 	}
 	return &agentsessionactionv1.AgentSessionRunTurnSnapshot{
 		RunRequest:               runRequest,
@@ -517,36 +517,25 @@ func mustStruct(value map[string]any) *structpb.Struct {
 	return out
 }
 
-func testProviderSurfaceBindingProvider() *providerv1.Provider {
-	return testProvider("provider-openai", testProviderSurfaceBinding("provider-openai", "openai-default", "https://api.openai.com/v1", "gpt-5"))
+func testProvider() *providerv1.Provider {
+	return testProviderInternal("provider-openai", "openai-default", "https://api.openai.com/v1", "gpt-5")
 }
 
-func testFallbackProviderSurfaceBindingProvider() *providerv1.Provider {
-	return testProvider("provider-openai-backup", testProviderSurfaceBinding("provider-openai-backup", "openai-backup", "https://backup.api.openai.com/v1", "gpt-4.1-mini"))
+func testFallbackProvider() *providerv1.Provider {
+	return testProviderInternal("provider-openai-backup", "openai-backup", "https://backup.api.openai.com/v1", "gpt-4.1-mini")
 }
 
-func testProvider(providerID string, endpoint *providerv1.ProviderSurfaceBinding) *providerv1.Provider {
+func testProviderInternal(providerID, surfaceID, baseURL, modelID string) *providerv1.Provider {
 	return &providerv1.Provider{
 		ProviderId:  providerID,
 		DisplayName: providerID,
-		Surfaces:    []*providerv1.ProviderSurfaceBinding{endpoint},
-	}
-}
-
-func testProviderSurfaceBinding(providerID, surfaceID, baseURL, modelID string) *providerv1.ProviderSurfaceBinding {
-	return &providerv1.ProviderSurfaceBinding{
-		SurfaceId: surfaceID,
-		SourceRef: &providerv1.ProviderSurfaceSourceRef{
-			Kind:      providerv1.ProviderSurfaceSourceKind_PROVIDER_SURFACE_SOURCE_KIND_CLI,
-			Id:        providerID,
-			SurfaceId: surfaceID,
-		},
+		SurfaceId:   surfaceID,
 		ProviderCredentialRef: &providerv1.ProviderCredentialRef{
-			ProviderCredentialId: "credential-openai",
+			ProviderCredentialId: "cred-" + surfaceID,
 		},
 		Runtime: &providerv1.ProviderSurfaceRuntime{
-			DisplayName: surfaceID,
-			Origin:      providerv1.ProviderSurfaceOrigin_PROVIDER_SURFACE_ORIGIN_MANUAL,
+			DisplayName: "Test surface",
+			Origin:      providerv1.ProviderSurfaceOrigin_PROVIDER_SURFACE_ORIGIN_DERIVED,
 			Access: &providerv1.ProviderSurfaceRuntime_Api{
 				Api: &providerv1.ProviderAPISurfaceRuntime{
 					Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
@@ -554,11 +543,11 @@ func testProviderSurfaceBinding(providerID, surfaceID, baseURL, modelID string) 
 				},
 			},
 			Catalog: &providerv1.ProviderModelCatalog{
-				Source: providerv1.CatalogSource_CATALOG_SOURCE_MODEL_SERVICE,
 				Models: []*providerv1.ProviderModelCatalogEntry{{
 					ProviderModelId: modelID,
 					ModelRef:        &modelv1.ModelRef{VendorId: "openai", ModelId: modelID},
 				}},
+				Source: providerv1.CatalogSource_CATALOG_SOURCE_VENDOR_PRESET,
 			},
 		},
 	}
@@ -582,7 +571,7 @@ func testResolvedProviderModel(instanceID string, baseURL string, modelID string
 				OutputModalities: []modelv1.Modality{modelv1.Modality_MODALITY_TEXT},
 			},
 		},
-		Source: providerv1.CatalogSource_CATALOG_SOURCE_MODEL_SERVICE,
+		Source: providerv1.CatalogSource_CATALOG_SOURCE_PROVIDER_DISCOVERY,
 		Surface: &providerv1.ResolvedProviderSurface{
 			Surface: &providerv1.ProviderSurfaceRuntime{
 				Access: &providerv1.ProviderSurfaceRuntime_Api{

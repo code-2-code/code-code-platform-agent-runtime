@@ -20,20 +20,20 @@ const (
 )
 
 type prepareAgentRunJobTriggerRequest struct {
-	RuntimeNamespace         string                    `json:"runtimeNamespace"`
-	SessionID                string                    `json:"sessionId"`
-	RunID                    string                    `json:"runId"`
-	AgentRunResourceName     string                    `json:"agentRunResourceName"`
-	WorkspacePVCName         string                    `json:"workspacePVCName"`
-	HomeStatePVCName         string                    `json:"homeStatePVCName"`
-	RuntimeWorkspaceDir      string                    `json:"runtimeWorkspaceDir"`
-	RuntimeDataDir           string                    `json:"runtimeDataDir"`
-	ContainerImage           string                    `json:"containerImage"`
-	ProviderID               string                    `json:"providerId"`
-	ProviderSurfaceBindingID string                    `json:"providerSurfaceBindingId"`
-	RuntimeURL               string                    `json:"runtimeUrl"`
-	AuthMaterializationKey   string                    `json:"authMaterializationKey"`
-	Job                      prepareAgentRunJobPayload `json:"job"`
+	RuntimeNamespace       string                    `json:"runtimeNamespace"`
+	SessionID              string                    `json:"sessionId"`
+	RunID                  string                    `json:"runId"`
+	AgentRunResourceName   string                    `json:"agentRunResourceName"`
+	WorkspacePVCName       string                    `json:"workspacePVCName"`
+	HomeStatePVCName       string                    `json:"homeStatePVCName"`
+	RuntimeWorkspaceDir    string                    `json:"runtimeWorkspaceDir"`
+	RuntimeDataDir         string                    `json:"runtimeDataDir"`
+	ContainerImage         string                    `json:"containerImage"`
+	ProviderID             string                    `json:"providerId"`
+	SurfaceID              string                    `json:"surfaceId"`
+	RuntimeURL             string                    `json:"runtimeUrl"`
+	AuthMaterializationKey string                    `json:"authMaterializationKey"`
+	Job                    prepareAgentRunJobPayload `json:"job"`
 }
 
 type prepareAgentRunJobPayload struct {

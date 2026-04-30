@@ -255,17 +255,17 @@ func (s *SessionServer) addRuntimeAuthProjectionMetadata(ctx context.Context, ru
 		return nil
 	}
 	authRequirement := run.GetSpec().GetAuthRequirement()
-	surfaceID := strings.TrimSpace(authRequirement.GetProviderSurfaceBindingId())
+	surfaceID := strings.TrimSpace(authRequirement.GetSurfaceId())
 	if surfaceID == "" || s.runtimeCatalog == nil || s.auth == nil || s.support == nil || s.egress == nil {
 		return nil
 	}
 	projection, err := s.agentRunAuthProjection(ctx, prepareAgentRunJobTriggerRequest{
-		SessionID:                run.GetSpec().GetSessionId(),
-		RunID:                    run.GetSpec().GetRunId(),
-		ProviderID:               firstNonEmptyString(authRequirement.GetProviderId(), run.GetSpec().GetProviderId(), metadata.GetProviderId()),
-		ProviderSurfaceBindingID: surfaceID,
-		RuntimeURL:               firstNonEmptyString(authRequirement.GetRuntimeUrl(), metadata.GetRuntimeUrl()),
-		AuthMaterializationKey:   firstNonEmptyString(authRequirement.GetMaterializationKey(), metadata.GetAuthMaterializationKey()),
+		SessionID:              run.GetSpec().GetSessionId(),
+		RunID:                  run.GetSpec().GetRunId(),
+		ProviderID:             firstNonEmptyString(authRequirement.GetProviderId(), run.GetSpec().GetProviderId(), metadata.GetProviderId()),
+		SurfaceID:              surfaceID,
+		RuntimeURL:             firstNonEmptyString(authRequirement.GetRuntimeUrl(), metadata.GetRuntimeUrl()),
+		AuthMaterializationKey: firstNonEmptyString(authRequirement.GetMaterializationKey(), metadata.GetAuthMaterializationKey()),
 		Job: prepareAgentRunJobPayload{
 			CLIID:   firstNonEmptyString(metadata.GetCliId(), run.GetSpec().GetAgentRuntimeId()),
 			JobType: "auth",
