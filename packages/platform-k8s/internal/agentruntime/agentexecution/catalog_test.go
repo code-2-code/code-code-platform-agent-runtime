@@ -77,11 +77,6 @@ func TestRemoteRuntimeCatalogRejectsMissingLatestImage(t *testing.T) {
 
 type runtimeCatalogProviderClient struct {
 	providerservicev1.ProviderServiceClient
-	definitions []*providerservicev1.CLIDefinitionView
-}
-
-func (c runtimeCatalogProviderClient) ListCLIDefinitions(context.Context, *providerservicev1.ListCLIDefinitionsRequest, ...grpc.CallOption) (*providerservicev1.ListCLIDefinitionsResponse, error) {
-	return &providerservicev1.ListCLIDefinitionsResponse{Items: c.definitions}, nil
 }
 
 type runtimeCatalogCLIClient struct {

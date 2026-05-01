@@ -88,7 +88,7 @@ func authPrepareParametersYAML(auth *agentrunv1.AgentRunAuthRequirement) string 
 	return fmt.Sprintf(
 		"surfaceId: %q\nruntimeUrl: %q\nauthMaterializationKey: %q\n",
 		strings.TrimSpace(auth.GetSurfaceId()),
-		strings.TrimSpace(auth.GetEndpointUrl()),
+		strings.TrimSpace(auth.GetRuntimeUrl()),
 		strings.TrimSpace(auth.GetMaterializationKey()),
 	)
 }

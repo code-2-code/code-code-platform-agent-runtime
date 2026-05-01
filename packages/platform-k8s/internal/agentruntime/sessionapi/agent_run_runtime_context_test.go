@@ -304,7 +304,7 @@ func testAgentRunState(runID string) *agentrunv1.AgentRunState {
 				ProviderId:         "provider-account-1",
 				SurfaceId:          "surface-1",
 				AuthStatus:         "bound",
-				EndpointUrl:        "https://api.example.test/v1",
+				RuntimeUrl:         "https://api.example.test/v1",
 				MaterializationKey: "codex.openai-oauth",
 				ProviderBinding: &agentrunv1.AgentRunProviderBinding{
 					ProviderId:         "provider-account-1",

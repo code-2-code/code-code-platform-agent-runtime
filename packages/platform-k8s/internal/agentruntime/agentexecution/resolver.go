@@ -99,7 +99,7 @@ func (r *Resolver) resolveAuthRequirement(ctx context.Context, providerID string
 		ProviderId:         strings.TrimSpace(providerID),
 		SurfaceId:          instance.Provider.GetSurfaceId(),
 		AuthStatus:         authStatusBound,
-		EndpointUrl:        endpointURL(instance.Endpoint),
+		RuntimeUrl:         endpointURL(instance.Endpoint),
 		MaterializationKey: materializationKey,
 		ProviderBinding:    binding,
 	}, nil

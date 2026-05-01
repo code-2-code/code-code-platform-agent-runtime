@@ -265,7 +265,7 @@ func (s *SessionServer) addRuntimeAuthProjectionMetadata(ctx context.Context, ru
 		RunID:                  run.GetSpec().GetRunId(),
 		ProviderID:             firstNonEmptyString(authRequirement.GetProviderId(), run.GetSpec().GetProviderId(), metadata.GetProviderId()),
 		SurfaceID:              surfaceID,
-		RuntimeURL:             firstNonEmptyString(authRequirement.GetEndpointUrl(), metadata.GetRuntimeUrl()),
+		RuntimeURL:             firstNonEmptyString(authRequirement.GetRuntimeUrl(), metadata.GetRuntimeUrl()),
 		AuthMaterializationKey: firstNonEmptyString(authRequirement.GetMaterializationKey(), metadata.GetAuthMaterializationKey()),
 		Job: prepareAgentRunJobPayload{
 			CLIID:   firstNonEmptyString(metadata.GetCliId(), run.GetSpec().GetAgentRuntimeId()),

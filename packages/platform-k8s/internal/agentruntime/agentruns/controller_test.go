@@ -509,7 +509,7 @@ func validRunSpec() *agentrunv1.AgentRunSpec {
 			ProviderId:         "codex",
 			SurfaceId:          "openai-default",
 			AuthStatus:         "bound",
-			EndpointUrl:        "https://api.openai.com/v1",
+			RuntimeUrl:         "https://api.openai.com/v1",
 			MaterializationKey: "codex.openai-api-key",
 		},
 		RuntimeEnvironment: &corev1.RuntimeEnvironment{
