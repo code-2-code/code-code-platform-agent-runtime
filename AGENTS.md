@@ -1,6 +1,8 @@
 # Agent Rules
 
 - This repository owns platform runtime and control-plane implementation.
+- Prefer the focused service repositories for profile and notification work:
+  `code-code-platform-profile` and `code-code-platform-notifications`.
 - Do not edit protobuf source or generated contract bindings here.
 - If a public contract must change, make that change in `code-code-contracts` first, then update this repository to the released contract version.
 - Keep state ownership inside the platform domain. Do not move UI or deployment-only behavior into platform packages.
