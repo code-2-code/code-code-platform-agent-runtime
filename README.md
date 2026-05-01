@@ -11,6 +11,8 @@ This repository owns:
 
 Focused service splits now exist:
 
+- `code-code-platform-catalog`: model, support, and CLI runtime catalog services.
+- `code-code-platform-auth-network`: auth, OAuth, egress, and network policy services.
 - `code-code-platform-profile`: profile configuration service.
 - `code-code-platform-notifications`: notification dispatcher and callback services.
 
