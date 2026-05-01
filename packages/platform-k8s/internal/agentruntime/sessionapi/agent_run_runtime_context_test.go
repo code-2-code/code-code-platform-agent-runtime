@@ -69,8 +69,8 @@ func TestResolveAgentRunRuntimeContextByPodUsesRunLabel(t *testing.T) {
 	if got, want := runs.getID, "run-1"; got != want {
 		t.Fatalf("agentRuns.Get id = %q, want %q", got, want)
 	}
-	if got, want := response.GetRun().GetSpec().GetAuthRequirement().GetProviderRunBinding().GetRuntimeCliId(), "codex"; got != want {
-		t.Fatalf("runtime_cli_id = %q, want %q", got, want)
+	if got, want := response.GetRun().GetSpec().GetAuthRequirement().GetProviderBinding().GetEndpoint().GetApi().GetBaseUrl(), "https://api.example.test/v1"; got != want {
+		t.Fatalf("binding endpoint base_url = %q, want %q", got, want)
 	}
 	if got, want := response.GetMetadata().GetCliId(), "codex"; got != want {
 		t.Fatalf("metadata.cli_id = %q, want %q", got, want)
@@ -220,18 +220,28 @@ func (runtimeContextRuntimeCatalog) ResolveContainerImage(context.Context, strin
 	return nil, nil
 }
 
-func (runtimeContextRuntimeCatalog) GetProviderBySurfaceID(_ context.Context, surfaceID string) (*agentexecution.ProviderProjection, error) {
+func (runtimeContextRuntimeCatalog) GetProvider(_ context.Context, surfaceID string) (*agentexecution.ProviderProjection, error) {
 	return &agentexecution.ProviderProjection{Provider: &providerv1.Provider{
 		ProviderId:            "provider-account-1",
 		SurfaceId:             surfaceID,
 		ProviderCredentialRef: &providerv1.ProviderCredentialRef{ProviderCredentialId: "cred-1"},
-		Runtime: &providerv1.ProviderSurfaceRuntime{
-			Access: &providerv1.ProviderSurfaceRuntime_Api{Api: &providerv1.ProviderAPISurfaceRuntime{
-				Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_COMPATIBLE,
-				BaseUrl:  "https://api.example.test/v1",
-			}},
-		},
+	}, Endpoint: &providerv1.ProviderEndpoint{
+		Type: providerv1.ProviderEndpointType_PROVIDER_ENDPOINT_TYPE_API,
+		Shape: &providerv1.ProviderEndpoint_Api{Api: &providerv1.ProviderApiEndpoint{
+			Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_COMPATIBLE,
+			BaseUrl:  "https://api.example.test/v1",
+		}},
 	}}, nil
+}
+
+func runtimeContextAPIEndpoint() *providerv1.ProviderEndpoint {
+	return &providerv1.ProviderEndpoint{
+		Type: providerv1.ProviderEndpointType_PROVIDER_ENDPOINT_TYPE_API,
+		Shape: &providerv1.ProviderEndpoint_Api{Api: &providerv1.ProviderApiEndpoint{
+			Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_COMPATIBLE,
+			BaseUrl:  "https://api.example.test/v1",
+		}},
+	}
 }
 
 func (runtimeContextRuntimeCatalog) GetCLI(context.Context, string) (*supportv1.CLI, error) {
@@ -267,9 +277,9 @@ type runtimeContextSupportClient struct{}
 
 func (runtimeContextSupportClient) ResolveProviderCapabilities(context.Context, *supportv1.ResolveProviderCapabilitiesRequest, ...grpc.CallOption) (*supportv1.ResolveProviderCapabilitiesResponse, error) {
 	return &supportv1.ResolveProviderCapabilitiesResponse{
-		EgressPolicyId:         "egress-policy-1",
-		AuthPolicyId:           "auth-policy-1",
-		AuthMaterializationKey: "codex.openai-oauth",
+		EgressPolicyId:        "egress-policy-1",
+		AuthPolicyId:          "auth-policy-1",
+		ObservabilityPolicyId: "observability-policy-1",
 	}, nil
 }
 
@@ -294,18 +304,16 @@ func testAgentRunState(runID string) *agentrunv1.AgentRunState {
 				ProviderId:         "provider-account-1",
 				SurfaceId:          "surface-1",
 				AuthStatus:         "bound",
-				RuntimeUrl:         "https://api.example.test/v1",
+				EndpointUrl:        "https://api.example.test/v1",
 				MaterializationKey: "codex.openai-oauth",
-				ProviderRunBinding: &providerv1.ProviderRunBinding{
+				ProviderBinding: &agentrunv1.AgentRunProviderBinding{
 					ProviderId:         "provider-account-1",
 					CredentialGrantRef: &credentialv1.CredentialGrantRef{GrantId: "cred-1"},
-					RuntimeUrl:         "https://api.example.test/v1",
+					Endpoint:           runtimeContextAPIEndpoint(),
 					MaterializationKey: "codex.openai-oauth",
-					RuntimeCliId:       "codex",
 					ProviderModelId:    "gpt-5",
-					Access: &providerv1.ProviderRunBinding_Api{Api: &providerv1.ProviderRunAPIAccess{
-						Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_COMPATIBLE,
-					}},
+					CanonicalModelId:   "gpt-5",
+					SourceModelId:      "gpt-5",
 				},
 			},
 		},

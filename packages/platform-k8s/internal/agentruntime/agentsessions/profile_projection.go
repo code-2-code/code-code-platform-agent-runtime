@@ -92,7 +92,8 @@ func runtimeConfigFromProfile(profile *agentprofilev1.AgentProfile) (*agentsessi
 		fallbackCapacity = len(items) - 1
 	}
 	runtimeConfig := &agentsessionv1.AgentSessionRuntimeConfig{
-		ProviderRuntimeRef: cloneProviderRuntimeRef(primary.GetProviderRuntimeRef()),
+		ProviderId: strings.TrimSpace(primary.GetProviderId()),
+		Endpoint:   cloneProviderEndpoint(primary.GetEndpoint()),
 		PrimaryModelSelector: profileModelSelector(
 			primary,
 		),
@@ -134,7 +135,8 @@ func fallbackFromProfile(candidate *agentprofilev1.AgentFallbackCandidate) *agen
 		return nil
 	}
 	fallback := &agentsessionv1.AgentSessionRuntimeFallbackCandidate{
-		ProviderRuntimeRef: cloneProviderRuntimeRef(candidate.GetProviderRuntimeRef()),
+		ProviderId: strings.TrimSpace(candidate.GetProviderId()),
+		Endpoint:   cloneProviderEndpoint(candidate.GetEndpoint()),
 	}
 	switch selector := candidate.ModelSelector.(type) {
 	case *agentprofilev1.AgentFallbackCandidate_ModelRef:
@@ -234,11 +236,11 @@ func cloneHomeStateRef(ref *agentsessionv1.AgentSessionHomeStateRef) *agentsessi
 	return proto.Clone(ref).(*agentsessionv1.AgentSessionHomeStateRef)
 }
 
-func cloneProviderRuntimeRef(ref *providerv1.ProviderRuntimeRef) *providerv1.ProviderRuntimeRef {
-	if ref == nil {
+func cloneProviderEndpoint(endpoint *providerv1.ProviderEndpoint) *providerv1.ProviderEndpoint {
+	if endpoint == nil {
 		return nil
 	}
-	return proto.Clone(ref).(*providerv1.ProviderRuntimeRef)
+	return proto.Clone(endpoint).(*providerv1.ProviderEndpoint)
 }
 
 func displayName(name, fallback string) string {

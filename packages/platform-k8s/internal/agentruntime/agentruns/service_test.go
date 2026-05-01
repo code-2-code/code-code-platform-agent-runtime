@@ -8,6 +8,7 @@ import (
 	agentcorev1 "code-code.internal/go-contract/agent/core/v1"
 	inputv1 "code-code.internal/go-contract/agent/input/v1"
 	resultv1 "code-code.internal/go-contract/agent/result/v1"
+	apiprotocolv1 "code-code.internal/go-contract/api_protocol/v1"
 	credentialv1 "code-code.internal/go-contract/credential/v1"
 	agentrunv1 "code-code.internal/go-contract/platform/agent_run/v1"
 	agentsessionv1 "code-code.internal/go-contract/platform/agent_session/v1"
@@ -239,7 +240,14 @@ func testReadySessionResource() *platformv1alpha1.AgentSessionResource {
 				ProviderId:     "codex",
 				ExecutionClass: "default",
 				RuntimeConfig: &agentsessionv1.AgentSessionRuntimeConfig{
-					ProviderRuntimeRef: &providerv1.ProviderRuntimeRef{SurfaceId: "openai-default"},
+					ProviderId: "openai-default",
+					Endpoint: &providerv1.ProviderEndpoint{
+						Type: providerv1.ProviderEndpointType_PROVIDER_ENDPOINT_TYPE_API,
+						Shape: &providerv1.ProviderEndpoint_Api{Api: &providerv1.ProviderApiEndpoint{
+							BaseUrl:  "https://api.openai.com/v1",
+							Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
+						}},
+					},
 				},
 				ResourceConfig: &capv1.AgentResources{SnapshotId: "resources-v1"},
 				WorkspaceRef:   &agentsessionv1.AgentSessionWorkspaceRef{WorkspaceId: "workspace-1"},

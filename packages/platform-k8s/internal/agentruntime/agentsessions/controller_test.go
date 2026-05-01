@@ -6,6 +6,7 @@ import (
 	"time"
 
 	capv1 "code-code.internal/go-contract/agent/cap/v1"
+	apiprotocolv1 "code-code.internal/go-contract/api_protocol/v1"
 	agentsessionv1 "code-code.internal/go-contract/platform/agent_session/v1"
 	agentsessionactionv1 "code-code.internal/go-contract/platform/agent_session_action/v1"
 	providerv1 "code-code.internal/go-contract/provider/v1"
@@ -96,7 +97,7 @@ func TestReconcilerKeepsActiveSessionRunning(t *testing.T) {
 func TestReconcilerMarksMissingRuntimeConfigPending(t *testing.T) {
 	ctx := context.Background()
 	spec := validSessionSpec()
-	spec.RuntimeConfig.ProviderRuntimeRef = nil
+	spec.RuntimeConfig.Endpoint = nil
 	resource := newSessionResource("agent-session-1", 7, spec)
 	markResourceConfigRealized(resource, 7)
 	resource.Status.RuntimeConfigGeneration = 3
@@ -555,15 +556,24 @@ func validSessionSpec() *agentsessionv1.AgentSessionSpec {
 		ProviderId:     "codex",
 		ExecutionClass: "default",
 		RuntimeConfig: &agentsessionv1.AgentSessionRuntimeConfig{
-			ProviderRuntimeRef: &providerv1.ProviderRuntimeRef{
-				SurfaceId: "provider-instance-1",
-			},
+			ProviderId: "provider-instance-1",
+			Endpoint:   testSessionEndpoint("https://provider-instance-1.example.test/v1"),
 		},
 		ResourceConfig: &capv1.AgentResources{
 			SnapshotId: "resources-1",
 		},
 		WorkspaceRef: &agentsessionv1.AgentSessionWorkspaceRef{WorkspaceId: "workspace-1"},
 		HomeStateRef: &agentsessionv1.AgentSessionHomeStateRef{HomeStateId: "home-1"},
+	}
+}
+
+func testSessionEndpoint(baseURL string) *providerv1.ProviderEndpoint {
+	return &providerv1.ProviderEndpoint{
+		Type: providerv1.ProviderEndpointType_PROVIDER_ENDPOINT_TYPE_API,
+		Shape: &providerv1.ProviderEndpoint_Api{Api: &providerv1.ProviderApiEndpoint{
+			Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
+			BaseUrl:  baseURL,
+		}},
 	}
 }
 

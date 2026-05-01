@@ -35,7 +35,7 @@ func (testRuntimeCatalog) ResolveContainerImage(_ context.Context, providerID, e
 	}, nil
 }
 
-func (testRuntimeCatalog) GetProviderBySurfaceID(_ context.Context, surfaceID string) (*agentexecution.ProviderProjection, error) {
+func (testRuntimeCatalog) GetProvider(_ context.Context, surfaceID string) (*agentexecution.ProviderProjection, error) {
 	surfaceID = strings.TrimSpace(surfaceID)
 	for _, resource := range []*providerv1.Provider{
 		testProvider(),
@@ -45,7 +45,10 @@ func (testRuntimeCatalog) GetProviderBySurfaceID(_ context.Context, surfaceID st
 		if err != nil {
 			continue
 		}
-		return &agentexecution.ProviderProjection{Provider: surface}, nil
+		return &agentexecution.ProviderProjection{
+			Provider: surface,
+			Endpoint: testProviderEndpointForSurface(surface.GetSurfaceId()),
+		}, nil
 	}
 	return nil, domainerror.NewNotFound("test provider surface %q not found", surfaceID)
 }
@@ -58,14 +61,6 @@ func (testRuntimeCatalog) GetCLI(_ context.Context, cliID string) (*supportv1.CL
 		CliId: "codex",
 		ApiKeyProtocols: []*supportv1.APIKeyProtocolSupport{{
 			Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
-			AuthMaterialization: &supportv1.CLIAuthMaterialization{
-				MaterializationKey:       "codex.openai-api-key",
-				RuntimeUrlProjectionKind: supportv1.RuntimeProjectionKind_RUNTIME_PROJECTION_KIND_BASE_URL,
-				IncludeRuntimeUrlHost:    true,
-				RequestAuthInjection: &supportv1.RequestAuthInjection{
-					HeaderNames: []string{"Authorization"},
-				},
-			},
 		}},
 	}, nil
 }

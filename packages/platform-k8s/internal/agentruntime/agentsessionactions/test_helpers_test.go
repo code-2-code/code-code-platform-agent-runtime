@@ -340,7 +340,8 @@ func readySessionResource() *platformv1alpha1.AgentSessionResource {
 				ProviderId:     "codex",
 				ExecutionClass: "default",
 				RuntimeConfig: &agentsessionv1.AgentSessionRuntimeConfig{
-					ProviderRuntimeRef: &providerv1.ProviderRuntimeRef{SurfaceId: "openai-default"},
+					ProviderId: "openai-default",
+					Endpoint:   testProviderEndpoint("https://api.openai.com/v1"),
 				},
 				ResourceConfig: resourceConfig,
 				WorkspaceRef:   &agentsessionv1.AgentSessionWorkspaceRef{WorkspaceId: "workspace-1"},
@@ -451,8 +452,17 @@ func testRunTurnSnapshot(runID string, prompt string, model string) *agentsessio
 		ProviderId:         "codex",
 		SurfaceId:          "openai-default",
 		AuthStatus:         "bound",
-		RuntimeUrl:         "https://api.openai.com/v1",
+		EndpointUrl:        "https://api.openai.com/v1",
 		MaterializationKey: "codex.openai-api-key",
+		ProviderBinding: &agentrunv1.AgentRunProviderBinding{
+			ProviderId:         "provider-openai",
+			CredentialGrantRef: &credentialv1.CredentialGrantRef{GrantId: "cred-openai-default"},
+			Endpoint:           testProviderEndpoint("https://api.openai.com/v1"),
+			MaterializationKey: "codex.openai-api-key",
+			ProviderModelId:    model,
+			CanonicalModelId:   model,
+			SourceModelId:      model,
+		},
 	}
 	return &agentsessionactionv1.AgentSessionRunTurnSnapshot{
 		RunRequest:               runRequest,
@@ -533,23 +543,10 @@ func testProviderInternal(providerID, surfaceID, baseURL, modelID string) *provi
 		ProviderCredentialRef: &providerv1.ProviderCredentialRef{
 			ProviderCredentialId: "cred-" + surfaceID,
 		},
-		Runtime: &providerv1.ProviderSurfaceRuntime{
-			DisplayName: "Test surface",
-			Origin:      providerv1.ProviderSurfaceOrigin_PROVIDER_SURFACE_ORIGIN_DERIVED,
-			Access: &providerv1.ProviderSurfaceRuntime_Api{
-				Api: &providerv1.ProviderAPISurfaceRuntime{
-					Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
-					BaseUrl:  baseURL,
-				},
-			},
-			Catalog: &providerv1.ProviderModelCatalog{
-				Models: []*providerv1.ProviderModelCatalogEntry{{
-					ProviderModelId: modelID,
-					ModelRef:        &modelv1.ModelRef{VendorId: "openai", ModelId: modelID},
-				}},
-				Source: providerv1.CatalogSource_CATALOG_SOURCE_VENDOR_PRESET,
-			},
-		},
+		Models: []*providerv1.ProviderModel{{
+			ProviderModelId: modelID,
+			ModelRef:        &modelv1.ModelRef{VendorId: "openai", ModelId: modelID},
+		}},
 	}
 }
 
@@ -557,8 +554,7 @@ func testResolvedProviderModel(instanceID string, baseURL string, modelID string
 	return &providerv1.ResolvedProviderModel{
 		SurfaceId:       instanceID,
 		ProviderModelId: modelID,
-		Protocol:        apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
-		BaseUrl:         baseURL,
+		Endpoint:        testProviderEndpoint(baseURL),
 		Model: &modelv1.ResolvedModel{
 			ModelId: modelID,
 			EffectiveDefinition: &modelv1.ModelVersion{
@@ -571,17 +567,25 @@ func testResolvedProviderModel(instanceID string, baseURL string, modelID string
 				OutputModalities: []modelv1.Modality{modelv1.Modality_MODALITY_TEXT},
 			},
 		},
-		Source: providerv1.CatalogSource_CATALOG_SOURCE_PROVIDER_DISCOVERY,
-		Surface: &providerv1.ResolvedProviderSurface{
-			Surface: &providerv1.ProviderSurfaceRuntime{
-				Access: &providerv1.ProviderSurfaceRuntime_Api{
-					Api: &providerv1.ProviderAPISurfaceRuntime{
-						Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
-						BaseUrl:  baseURL,
-					},
-				},
-			},
-		},
+	}
+}
+
+func testProviderEndpointForSurface(surfaceID string) *providerv1.ProviderEndpoint {
+	switch strings.TrimSpace(surfaceID) {
+	case "openai-backup":
+		return testProviderEndpoint("https://backup.api.openai.com/v1")
+	default:
+		return testProviderEndpoint("https://api.openai.com/v1")
+	}
+}
+
+func testProviderEndpoint(baseURL string) *providerv1.ProviderEndpoint {
+	return &providerv1.ProviderEndpoint{
+		Type: providerv1.ProviderEndpointType_PROVIDER_ENDPOINT_TYPE_API,
+		Shape: &providerv1.ProviderEndpoint_Api{Api: &providerv1.ProviderApiEndpoint{
+			BaseUrl:  strings.TrimSpace(baseURL),
+			Protocol: apiprotocolv1.Protocol_PROTOCOL_OPENAI_RESPONSES,
+		}},
 	}
 }
 

@@ -25,9 +25,9 @@ func prepareRequestBody(run *platformv1alpha1.AgentRunResource, job *agentrunv1.
 		"runtimeWorkspaceDir":    spec.GetRuntimeEnvironment().GetWorkspaceDir(),
 		"runtimeDataDir":         spec.GetRuntimeEnvironment().GetDataDir(),
 		"containerImage":         spec.GetContainerImage(),
-		"providerId":             spec.GetProviderId(),
+		"providerId":             firstNonEmpty(auth.GetProviderBinding().GetProviderId(), spec.GetProviderId()),
 		"surfaceId":              auth.GetSurfaceId(),
-		"runtimeUrl":             auth.GetRuntimeUrl(),
+		"runtimeUrl":             auth.GetEndpointUrl(),
 		"authMaterializationKey": auth.GetMaterializationKey(),
 		"job": map[string]any{
 			"jobId":          job.GetJobId(),

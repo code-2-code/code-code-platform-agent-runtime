@@ -233,13 +233,14 @@ func (s *SessionServer) runtimeMetadataFromRun(ctx context.Context, run *agentru
 		CliId:      strings.TrimSpace(run.GetSpec().GetAgentRuntimeId()),
 		ImageId:    strings.TrimSpace(run.GetSpec().GetContainerImage()),
 	}
-	if binding := run.GetSpec().GetAuthRequirement().GetProviderRunBinding(); binding != nil {
-		metadata.CliId = firstNonEmptyString(binding.GetRuntimeCliId(), run.GetSpec().GetAgentRuntimeId())
+	if binding := run.GetSpec().GetAuthRequirement().GetProviderBinding(); binding != nil {
+		endpoint := binding.GetEndpoint()
+		metadata.CliId = firstNonEmptyString(endpoint.GetCli().GetCliId(), run.GetSpec().GetAgentRuntimeId())
 		metadata.ProviderId = firstNonEmptyString(binding.GetProviderId(), metadata.GetProviderId())
 		metadata.CredentialId = strings.TrimSpace(binding.GetCredentialGrantRef().GetGrantId())
-		metadata.RuntimeUrl = strings.TrimSpace(binding.GetRuntimeUrl())
+		metadata.RuntimeUrl = strings.TrimSpace(endpoint.GetApi().GetBaseUrl())
 		metadata.AuthMaterializationKey = strings.TrimSpace(binding.GetMaterializationKey())
-		if api := binding.GetApi(); api != nil {
+		if api := endpoint.GetApi(); api != nil {
 			metadata.Protocol = api.GetProtocol()
 		}
 		metadata.ModelId = firstNonEmptyString(binding.GetProviderModelId(), binding.GetCanonicalModelId(), binding.GetSourceModelId())
@@ -264,7 +265,7 @@ func (s *SessionServer) addRuntimeAuthProjectionMetadata(ctx context.Context, ru
 		RunID:                  run.GetSpec().GetRunId(),
 		ProviderID:             firstNonEmptyString(authRequirement.GetProviderId(), run.GetSpec().GetProviderId(), metadata.GetProviderId()),
 		SurfaceID:              surfaceID,
-		RuntimeURL:             firstNonEmptyString(authRequirement.GetRuntimeUrl(), metadata.GetRuntimeUrl()),
+		RuntimeURL:             firstNonEmptyString(authRequirement.GetEndpointUrl(), metadata.GetRuntimeUrl()),
 		AuthMaterializationKey: firstNonEmptyString(authRequirement.GetMaterializationKey(), metadata.GetAuthMaterializationKey()),
 		Job: prepareAgentRunJobPayload{
 			CLIID:   firstNonEmptyString(metadata.GetCliId(), run.GetSpec().GetAgentRuntimeId()),

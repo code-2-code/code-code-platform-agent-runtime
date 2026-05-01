@@ -22,16 +22,17 @@ func (s *SessionServer) validateAgentRunAuthProjection(ctx context.Context, body
 }
 
 func (s *SessionServer) agentRunAuthProjection(ctx context.Context, body prepareAgentRunJobTriggerRequest) (agentrunauth.Projection, error) {
-	providerProjection, err := s.runtimeCatalog.GetProviderBySurfaceID(ctx, body.SurfaceID)
+	providerLookupID := firstNonEmptyString(body.ProviderID, body.SurfaceID)
+	providerProjection, err := s.runtimeCatalog.GetProvider(ctx, providerLookupID)
 	if err != nil {
 		return agentrunauth.Projection{}, err
 	}
-	if providerProjection == nil || providerProjection.Provider == nil || providerProjection.Provider.GetRuntime() == nil || providerv1.RuntimeKind(providerProjection.Provider.GetRuntime()) == providerv1.ProviderSurfaceKind_PROVIDER_SURFACE_KIND_UNSPECIFIED {
-		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider surface %q runtime is invalid", body.SurfaceID)
+	if providerProjection == nil || providerProjection.Provider == nil || providerProjection.Endpoint == nil {
+		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider %q endpoint is invalid", providerLookupID)
 	}
 	credentialID := strings.TrimSpace(providerProjection.Provider.GetProviderCredentialRef().GetProviderCredentialId())
 	if credentialID == "" {
-		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider surface %q credential is empty", body.SurfaceID)
+		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: provider %q credential is empty", providerLookupID)
 	}
 	credentialResponse, err := s.auth.GetCredentialRuntimeProjection(ctx, &authv1.GetCredentialRuntimeProjectionRequest{
 		CredentialId: credentialID,
@@ -43,28 +44,23 @@ func (s *SessionServer) agentRunAuthProjection(ctx context.Context, body prepare
 	if credential == nil {
 		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: credential %q runtime projection is empty", credentialID)
 	}
-	runtime := providerProjection.Provider.GetRuntime()
-	cliID := firstNonEmpty(body.Job.CLIID, body.ProviderID, providerv1.RuntimeCLIID(runtime))
-	runtimeURL := firstNonEmpty(body.RuntimeURL, providerv1.RuntimeBaseURL(runtime))
-	protocol := providerv1.RuntimeProtocol(runtime)
+	endpoint := providerProjection.Endpoint
+	cliID := firstNonEmpty(body.Job.CLIID, body.ProviderID, credential.GetCliId(), providerv1.EndpointCLIID(endpoint))
+	runtimeURL := firstNonEmpty(body.RuntimeURL, providerv1.EndpointBaseURL(endpoint))
+	protocol := providerv1.EndpointProtocol(endpoint)
 	capabilities, err := s.support.ResolveProviderCapabilities(ctx, &supportv1.ResolveProviderCapabilitiesRequest{
-		Subject: &supportv1.ResolveProviderCapabilitiesRequest_Runtime{Runtime: &supportv1.RuntimeCapabilitySubject{
-			ProviderId:             firstNonEmpty(body.ProviderID, cliID),
-			SurfaceId:              providerProjection.Provider.GetSurfaceId(),
-			Protocol:               protocol,
-			CredentialKind:         credential.GetCredentialKind(),
-			RuntimeUrl:             runtimeURL,
-			AuthMaterializationKey: body.AuthMaterializationKey,
-			ExecutionContext:       supportv1.CapabilityExecutionContext_CAPABILITY_EXECUTION_CONTEXT_AGENT_RUN,
+		Subject: &supportv1.ResolveProviderCapabilitiesRequest_Provider{Provider: &supportv1.ProviderCapabilitySubject{
+			ProviderId:       firstNonEmpty(providerProjection.Provider.GetProviderId(), body.ProviderID),
+			SurfaceId:        providerProjection.Provider.GetSurfaceId(),
+			Endpoint:         endpoint,
+			CredentialKind:   credential.GetCredentialKind(),
+			ExecutionContext: supportv1.CapabilityExecutionContext_CAPABILITY_EXECUTION_CONTEXT_AGENT_RUN,
 		}},
 	})
 	if err != nil {
 		return agentrunauth.Projection{}, err
 	}
-	materializationKey := strings.TrimSpace(firstNonEmpty(capabilities.GetAuthMaterializationKey(), body.AuthMaterializationKey))
-	if expected := strings.TrimSpace(body.AuthMaterializationKey); expected != "" && materializationKey != "" && expected != materializationKey {
-		return agentrunauth.Projection{}, fmt.Errorf("platformk8s/sessionapi: auth materialization key %q does not match %q", expected, materializationKey)
-	}
+	materializationKey := strings.TrimSpace(body.AuthMaterializationKey)
 	egressPolicy, err := s.egress.GetEgressRuntimePolicy(ctx, &egressservicev1.GetEgressRuntimePolicyRequest{
 		PolicyId:   capabilities.GetEgressPolicyId(),
 		RuntimeUrl: runtimeURL,
@@ -92,12 +88,20 @@ func (s *SessionServer) agentRunAuthProjection(ctx context.Context, body prepare
 		ResponseHeaderReplacementRules: authRulesToRuntimeRules(authPolicy.GetResponseReplacementRules()),
 		EgressPolicyID:                 capabilities.GetEgressPolicyId(),
 		AuthPolicyID:                   capabilities.GetAuthPolicyId(),
-		ObservabilityProfileIDs:        observabilityProfileIDs(capabilities.GetObservability()),
-		ProviderID:                     firstNonEmpty(body.ProviderID, cliID),
+		ObservabilityProfileIDs:        singleNonEmpty(capabilities.GetObservabilityPolicyId()),
+		ProviderID:                     firstNonEmpty(providerProjection.Provider.GetProviderId(), body.ProviderID, cliID),
 		VendorID:                       credential.GetVendorId(),
 		SurfaceID:                      providerProjection.Provider.GetSurfaceId(),
 		CLIID:                          cliID,
 	}, nil
+}
+
+func singleNonEmpty(value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return []string{value}
 }
 
 func authRulesToRuntimeRules(rules []*authv1.EgressSimpleReplacementRule) []*managementv1.AgentRunRuntimeHeaderReplacementRule {

@@ -83,7 +83,7 @@ func runtimeConfigReady(config *agentsessionv1.AgentSessionRuntimeConfig) bool {
 	if config == nil {
 		return false
 	}
-	return strings.TrimSpace(config.GetProviderRuntimeRef().GetSurfaceId()) != ""
+	return strings.TrimSpace(config.GetProviderId()) != "" && config.GetEndpoint() != nil
 }
 
 func resourceConfigReady(config *capv1.AgentResources, realized agentresourceconfig.Revisions) bool {
@@ -128,7 +128,7 @@ func (e readinessEvaluation) conditions(previous []metav1.Condition, generation 
 		platformcontract.AgentSessionConditionReasonRuntimeConfigPrepared,
 		platformcontract.AgentSessionConditionReasonRuntimeConfigInvalid,
 		"Runtime config is ready.",
-		"Runtime config requires providerRuntimeRef.surfaceId.",
+		"Runtime config requires provider_id and endpoint.",
 		generation,
 		now,
 	)

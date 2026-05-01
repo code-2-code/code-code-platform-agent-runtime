@@ -8,7 +8,6 @@ import (
 
 	agentrunv1 "code-code.internal/go-contract/platform/agent_run/v1"
 	agentsessionv1 "code-code.internal/go-contract/platform/agent_session/v1"
-	providerv1 "code-code.internal/go-contract/provider/v1"
 	platformv1alpha1 "code-code.internal/platform-k8s/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -81,7 +80,8 @@ func TestCreateActionFreezesRuntimeFallbackCandidates(t *testing.T) {
 
 	session := readySessionResource()
 	session.Spec.Session.RuntimeConfig.Fallbacks = []*agentsessionv1.AgentSessionRuntimeFallbackCandidate{{
-		ProviderRuntimeRef: &providerv1.ProviderRuntimeRef{SurfaceId: "openai-backup"},
+		ProviderId: "openai-backup",
+		Endpoint:   testProviderEndpoint("https://backup.api.openai.com/v1"),
 		ModelSelector: &agentsessionv1.AgentSessionRuntimeFallbackCandidate_ProviderModelId{
 			ProviderModelId: "gpt-4.1-mini",
 		},

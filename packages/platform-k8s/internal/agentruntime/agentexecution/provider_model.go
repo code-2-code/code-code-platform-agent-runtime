@@ -15,7 +15,6 @@ import (
 type modelBinding struct {
 	providerModelID string
 	modelRef        *modelv1.ModelRef
-	source          providerv1.CatalogSource
 }
 
 func (r *Resolver) resolvePrimaryRuntimeCandidate(ctx context.Context, session *platformv1alpha1.AgentSessionResource, request *agentcorev1.RunRequest, instance *ProviderProjection) (*RuntimeCandidate, error) {
@@ -35,7 +34,7 @@ func (r *Resolver) resolveFallbackRuntimeCandidate(ctx context.Context, session 
 	if fallback == nil {
 		return nil, validation("runtime fallback candidate is nil")
 	}
-	instance, err := r.loadProviderBySurfaceID(ctx, fallback.GetProviderRuntimeRef().GetSurfaceId())
+	instance, err := r.loadProvider(ctx, fallback.GetProviderId())
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +53,7 @@ func (r *Resolver) resolveRuntimeCandidate(ctx context.Context, providerID strin
 	if err != nil {
 		return nil, err
 	}
-	authRequirement, err := r.resolveAuthRequirement(ctx, providerID, instance, resolvedProviderModel.GetBaseUrl())
+	authRequirement, err := r.resolveAuthRequirement(ctx, providerID, instance, resolvedProviderModel)
 	if err != nil {
 		return nil, err
 	}
@@ -73,35 +72,31 @@ func (r *Resolver) resolveProviderModel(ctx context.Context, instance *ProviderP
 	if err != nil {
 		return nil, err
 	}
-	runtime := proto.Clone(instance.Provider.GetRuntime()).(*providerv1.ProviderSurfaceRuntime)
 	return &providerv1.ResolvedProviderModel{
 		SurfaceId:       instance.Provider.GetSurfaceId(),
 		ProviderModelId: binding.providerModelID,
-		Protocol:        providerv1.RuntimeProtocol(runtime),
-		BaseUrl:         providerv1.RuntimeBaseURL(runtime),
+		Endpoint:        cloneProviderEndpoint(instance.Endpoint),
 		Model:           resolvedModel,
-		Source:          binding.source,
-		Surface:         &providerv1.ResolvedProviderSurface{Surface: runtime},
 	}, nil
 }
 
 func (r *Resolver) selectModelBinding(ctx context.Context, instance *ProviderProjection, modelRef *modelv1.ModelRef, providerModelID string) (*modelBinding, error) {
-	catalog := instance.Provider.GetRuntime().GetCatalog()
+	models := instance.Provider.GetModels()
 	if normalizedRef := normalizeModelRef(modelRef); normalizedRef != nil {
-		entry, err := findEntryByModelRef(catalog, normalizedRef)
+		entry, err := findEntryByModelRef(models, normalizedRef)
 		if err != nil {
 			return nil, err
 		}
 		if entry == nil {
 			return nil, validationf("provider surface %q does not expose model_ref %q", instance.Provider.GetSurfaceId(), normalizedRef.GetModelId())
 		}
-		return &modelBinding{providerModelID: entry.GetProviderModelId(), modelRef: normalizedRef, source: sourceFromCatalog(catalog)}, nil
+		return &modelBinding{providerModelID: entry.GetProviderModelId(), modelRef: normalizedRef}, nil
 	}
 	providerModelID = strings.TrimSpace(providerModelID)
 	if providerModelID == "" {
 		return nil, validationf("provider surface %q provider_model_id is empty", instance.Provider.GetSurfaceId())
 	}
-	if entry := findEntryByProviderModelID(catalog, providerModelID); entry != nil {
+	if entry := findEntryByProviderModelID(models, providerModelID); entry != nil {
 		ref := normalizeModelRef(entry.GetModelRef())
 		if ref == nil {
 			resolvedRef, err := r.models.ResolveRef(ctx, providerModelID)
@@ -110,22 +105,22 @@ func (r *Resolver) selectModelBinding(ctx context.Context, instance *ProviderPro
 			}
 			ref = normalizeModelRef(resolvedRef)
 		}
-		return &modelBinding{providerModelID: providerModelID, modelRef: ref, source: sourceFromCatalog(catalog)}, nil
+		return &modelBinding{providerModelID: providerModelID, modelRef: ref}, nil
 	}
 	resolvedRef, err := r.models.ResolveRef(ctx, providerModelID)
 	if err != nil {
 		return nil, err
 	}
-	if entry, err := findEntryByModelRef(catalog, resolvedRef); err != nil {
+	if entry, err := findEntryByModelRef(models, resolvedRef); err != nil {
 		return nil, err
 	} else if entry != nil {
-		return &modelBinding{providerModelID: entry.GetProviderModelId(), modelRef: normalizeModelRef(resolvedRef), source: sourceFromCatalog(catalog)}, nil
+		return &modelBinding{providerModelID: entry.GetProviderModelId(), modelRef: normalizeModelRef(resolvedRef)}, nil
 	}
-	return &modelBinding{providerModelID: providerModelID, modelRef: normalizeModelRef(resolvedRef), source: sourceFromCatalog(catalog)}, nil
+	return &modelBinding{providerModelID: providerModelID, modelRef: normalizeModelRef(resolvedRef)}, nil
 }
 
-func findEntryByProviderModelID(catalog *providerv1.ProviderModelCatalog, providerModelID string) *providerv1.ProviderModelCatalogEntry {
-	for _, item := range catalog.GetModels() {
+func findEntryByProviderModelID(models []*providerv1.ProviderModel, providerModelID string) *providerv1.ProviderModel {
+	for _, item := range models {
 		if strings.TrimSpace(item.GetProviderModelId()) == strings.TrimSpace(providerModelID) {
 			return item
 		}
@@ -133,13 +128,13 @@ func findEntryByProviderModelID(catalog *providerv1.ProviderModelCatalog, provid
 	return nil
 }
 
-func findEntryByModelRef(catalog *providerv1.ProviderModelCatalog, ref *modelv1.ModelRef) (*providerv1.ProviderModelCatalogEntry, error) {
+func findEntryByModelRef(models []*providerv1.ProviderModel, ref *modelv1.ModelRef) (*providerv1.ProviderModel, error) {
 	ref = normalizeModelRef(ref)
 	if ref == nil {
 		return nil, nil
 	}
-	var match *providerv1.ProviderModelCatalogEntry
-	for _, item := range catalog.GetModels() {
+	var match *providerv1.ProviderModel
+	for _, item := range models {
 		entryRef := normalizeModelRef(item.GetModelRef())
 		if entryRef == nil || entryRef.GetModelId() != ref.GetModelId() {
 			continue
@@ -183,13 +178,6 @@ func primaryModelSelector(session *platformv1alpha1.AgentSessionResource) (*mode
 	}
 }
 
-func sourceFromCatalog(catalog *providerv1.ProviderModelCatalog) providerv1.CatalogSource {
-	if catalog != nil && catalog.GetSource() != providerv1.CatalogSource_CATALOG_SOURCE_UNSPECIFIED {
-		return catalog.GetSource()
-	}
-	return providerv1.CatalogSource_CATALOG_SOURCE_FALLBACK_CONFIG
-}
-
 func surfaceID(instance *providerv1.Provider) string {
 	if instance == nil {
 		return ""
@@ -198,6 +186,13 @@ func surfaceID(instance *providerv1.Provider) string {
 		return strings.TrimSpace(instance.GetSurfaceId())
 	}
 	return ""
+}
+
+func cloneProviderEndpoint(endpoint *providerv1.ProviderEndpoint) *providerv1.ProviderEndpoint {
+	if endpoint == nil {
+		return nil
+	}
+	return proto.Clone(endpoint).(*providerv1.ProviderEndpoint)
 }
 
 func requestModel(request *agentcorev1.RunRequest) string {

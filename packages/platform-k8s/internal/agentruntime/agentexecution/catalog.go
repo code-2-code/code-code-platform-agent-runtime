@@ -23,11 +23,12 @@ type ContainerImage struct {
 
 type ProviderProjection struct {
 	Provider *providerv1.Provider
+	Endpoint *providerv1.ProviderEndpoint
 }
 
 type RuntimeCatalog interface {
 	ResolveContainerImage(ctx context.Context, providerID, executionClass string) (*ContainerImage, error)
-	GetProviderBySurfaceID(ctx context.Context, surfaceID string) (*ProviderProjection, error)
+	GetProvider(ctx context.Context, providerID string) (*ProviderProjection, error)
 	GetCLI(ctx context.Context, cliID string) (*supportv1.CLI, error)
 }
 
@@ -115,27 +116,33 @@ func (c *RemoteRuntimeCatalog) latestAvailableRuntimeImage(ctx context.Context, 
 	return "", domainerror.NewNotFound("platformk8s/agentexecution: no available runtime image for cli %q execution class %q", providerID, executionClass)
 }
 
-func (c *RemoteRuntimeCatalog) GetProviderBySurfaceID(ctx context.Context, surfaceID string) (*ProviderProjection, error) {
+func (c *RemoteRuntimeCatalog) GetProvider(ctx context.Context, providerID string) (*ProviderProjection, error) {
 	response, err := c.providers.ListProviders(ctx, &providerservicev1.ListProvidersRequest{})
 	if err != nil {
 		return nil, err
 	}
-	surfaceID = strings.TrimSpace(surfaceID)
+	providerID = strings.TrimSpace(providerID)
 	for _, item := range response.GetItems() {
-		if strings.TrimSpace(item.GetSurfaceId()) != surfaceID {
+		if strings.TrimSpace(item.GetProviderId()) != providerID {
 			continue
 		}
+		endpoint := firstProviderEndpoint(item.GetEndpoints())
 		provider := &providerv1.Provider{
 			ProviderId:            item.GetProviderId(),
+			DisplayName:           item.GetDisplayName(),
 			SurfaceId:             item.GetSurfaceId(),
 			ProviderCredentialRef: &providerv1.ProviderCredentialRef{ProviderCredentialId: item.GetProviderCredentialId()},
+			Models:                cloneProviderModels(item.GetModels()),
 		}
-		if item.GetRuntime() != nil {
-			provider.Runtime = proto.Clone(item.GetRuntime()).(*providerv1.ProviderSurfaceRuntime)
+		if api := endpoint.GetApi(); api != nil && strings.TrimSpace(item.GetSurfaceId()) == "custom.api" {
+			provider.CustomApiKeySurface = &providerv1.CustomAPIKeySurface{
+				BaseUrl:  strings.TrimSpace(api.GetBaseUrl()),
+				Protocol: api.GetProtocol(),
+			}
 		}
-		return &ProviderProjection{Provider: provider}, nil
+		return &ProviderProjection{Provider: provider, Endpoint: endpoint}, nil
 	}
-	return nil, domainerror.NewNotFound("platformk8s/agentexecution: provider surface %q not found", surfaceID)
+	return nil, domainerror.NewNotFound("platformk8s/agentexecution: provider %q not found", providerID)
 }
 
 func (c *RemoteRuntimeCatalog) GetCLI(ctx context.Context, cliID string) (*supportv1.CLI, error) {
@@ -145,6 +152,30 @@ func (c *RemoteRuntimeCatalog) GetCLI(ctx context.Context, cliID string) (*suppo
 		return proto.Clone(response.GetItem()).(*supportv1.CLI), nil
 	}
 	return nil, domainerror.NewNotFound("platformk8s/agentexecution: cli %q not found", cliID)
+}
+
+func cloneProviderModels(models []*providerv1.ProviderModel) []*providerv1.ProviderModel {
+	if models == nil {
+		return nil
+	}
+	out := make([]*providerv1.ProviderModel, 0, len(models))
+	for _, model := range models {
+		if model == nil {
+			continue
+		}
+		out = append(out, proto.Clone(model).(*providerv1.ProviderModel))
+	}
+	return out
+}
+
+func firstProviderEndpoint(endpoints []*providerv1.ProviderEndpoint) *providerv1.ProviderEndpoint {
+	for _, endpoint := range endpoints {
+		if endpoint == nil {
+			continue
+		}
+		return proto.Clone(endpoint).(*providerv1.ProviderEndpoint)
+	}
+	return nil
 }
 
 type RemoteModelRegistry struct {

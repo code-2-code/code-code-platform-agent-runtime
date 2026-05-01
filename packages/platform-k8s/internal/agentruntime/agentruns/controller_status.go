@@ -47,8 +47,8 @@ func deriveInvalidStatus(resource *platformv1alpha1.AgentRunResource, now time.T
 	if strings.TrimSpace(resource.Spec.Run.GetAuthRequirement().GetProviderId()) == "" {
 		return failedStatus(resource.Generation, now, string(platformcontract.AgentRunConditionReasonInvalidSpec), "AgentRun authRequirement.providerId is required."), true
 	}
-	if strings.TrimSpace(resource.Spec.Run.GetAuthRequirement().GetRuntimeUrl()) == "" {
-		return failedStatus(resource.Generation, now, string(platformcontract.AgentRunConditionReasonInvalidSpec), "AgentRun authRequirement.runtimeUrl is required."), true
+	if strings.TrimSpace(resource.Spec.Run.GetAuthRequirement().GetEndpointUrl()) == "" {
+		return failedStatus(resource.Generation, now, string(platformcontract.AgentRunConditionReasonInvalidSpec), "AgentRun authRequirement.endpointUrl is required."), true
 	}
 	if strings.TrimSpace(resource.Spec.Run.GetAuthRequirement().GetMaterializationKey()) == "" {
 		return failedStatus(resource.Generation, now, string(platformcontract.AgentRunConditionReasonInvalidSpec), "AgentRun authRequirement.materializationKey is required."), true
