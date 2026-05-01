@@ -9,6 +9,9 @@
 - Do not edit protobuf source or generated contract bindings here.
 - If a public contract must change, make that change in `code-code-contracts`
   first, then update this repository to the released contract version.
+- If session persistence or platform domain helper behavior must change, make
+  that change in `code-code-platform-session` first, then update this
+  repository to the released dependency.
 - Do not move provider, auth, egress, profile, catalog, notification, UI, or
   deployment behavior into this repository.
 - Keep changes narrow to one runtime/session use case at a time.

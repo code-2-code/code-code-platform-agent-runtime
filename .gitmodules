@@ -1,3 +1,6 @@
 [submodule "code-code-contracts"]
 	path = code-code-contracts
 	url = https://github.com/code-2-code/code-code-contracts
+[submodule "code-code-platform-session"]
+	path = code-code-platform-session
+	url = https://github.com/code-2-code/code-code-platform-session

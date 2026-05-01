@@ -119,8 +119,8 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace code-code.internal/platform-contract => ../platform-contract
+replace code-code.internal/platform-contract => ../../code-code-platform-session/packages/platform-contract
 
 replace code-code.internal/go-contract => ../../code-code-contracts/packages/go-contract
 
-replace code-code.internal/session => ../session
+replace code-code.internal/session => ../../code-code-platform-session/packages/session
